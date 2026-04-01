@@ -8,8 +8,12 @@ import {
   PieChart,
   LineChart
 } from 'lucide-react';
+import { useAnalytics } from '../lib/api/hooks/useAnalytics';
 
 export const Analytics = () => {
+  const { data } = useAnalytics();
+  const stats = data?.analytics;
+
   return (
     <div className="space-y-8">
       <div>
@@ -18,10 +22,10 @@ export const Analytics = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Efficiency" value="84%" icon={<TrendingUp className="text-emerald-600" />} />
-        <StatCard label="Labor Cost" value="$12,400" icon={<Users className="text-blue-600" />} />
-        <StatCard label="Material Waste" value="4.2%" icon={<PieChart className="text-rose-600" />} />
-        <StatCard label="Net Profit" value="$45,200" icon={<DollarSign className="text-emerald-600" />} />
+        <StatCard label="Efficiency" value={`${stats?.efficiency ?? 0}%`} icon={<TrendingUp className="text-emerald-600" />} />
+        <StatCard label="Labor Cost" value={`$${(stats?.laborCost ?? 0).toLocaleString()}`} icon={<Users className="text-blue-600" />} />
+        <StatCard label="Material Waste" value={`${stats?.materialWaste ?? 0}%`} icon={<PieChart className="text-rose-600" />} />
+        <StatCard label="Net Profit" value={`$${(stats?.netProfit ?? 0).toLocaleString()}`} icon={<DollarSign className="text-emerald-600" />} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">

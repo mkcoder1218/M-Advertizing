@@ -7,10 +7,12 @@ interface AppContextType {
   isSidebarCollapsed: boolean;
   setSidebarCollapsed: (collapsed: boolean) => void;
   user: User | null;
+  authToken: string | null;
+  refreshToken: string | null;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
   isAuthenticated: boolean;
-  login: (email: string, role: UserRole) => void;
+  login: (user: User, token: string, refreshToken: string) => void;
   logout: () => void;
 }
 
@@ -22,22 +24,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [refreshToken, setRefreshToken] = useState<string | null>(null);
 
-  const login = (email: string, newRole: UserRole) => {
+  const login = (user: User, token: string, refresh: string) => {
     setIsAuthenticated(true);
-    setRole(newRole);
-    setCurrentUser({
-      id: '1',
-      name: email.split('@')[0].charAt(0).toUpperCase() + email.split('@')[0].slice(1),
-      email: email,
-      role: newRole,
-      avatar: `https://picsum.photos/seed/${email}/100/100`,
-    });
+    setRole(user.role);
+    setCurrentUser(user);
+    setAuthToken(token);
+    setRefreshToken(refresh);
+    localStorage.setItem('authToken', token);
+    localStorage.setItem('refreshToken', refresh);
   };
 
   const logout = () => {
     setIsAuthenticated(false);
     setCurrentUser(null);
+    setAuthToken(null);
+    setRefreshToken(null);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('refreshToken');
   };
 
   const toggleDarkMode = () => {
@@ -57,6 +63,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       isSidebarCollapsed, 
       setSidebarCollapsed, 
       user: currentUser,
+      authToken,
+      refreshToken,
       isDarkMode,
       toggleDarkMode,
       isAuthenticated,

@@ -11,6 +11,7 @@ import {
   Users, 
   BarChart3, 
   Settings,
+  Clock,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -30,10 +31,11 @@ const iconMap: Record<string, any> = {
   FileText,
   Users,
   BarChart3,
+  Clock,
   Settings
 };
 
-export const Sidebar = ({ currentPath }: { currentPath: string }) => {
+export const Sidebar = ({ currentPath, isMobile }: { currentPath: string; isMobile?: boolean }) => {
   const { role, isSidebarCollapsed, setSidebarCollapsed, user } = useApp();
 
   const filteredNav = NAV_ITEMS.filter(item => item.roles.includes(role));
@@ -44,19 +46,22 @@ export const Sidebar = ({ currentPath }: { currentPath: string }) => {
       animate={{ width: isSidebarCollapsed ? 80 : 260 }}
       className={cn(
         "fixed left-0 top-0 z-40 h-screen border-r border-slate-200 bg-white transition-all duration-300 dark:border-slate-800 dark:bg-slate-900",
-        "flex flex-col"
+        "flex flex-col",
+        isMobile && isSidebarCollapsed ? "-translate-x-full" : "translate-x-0",
+        isMobile ? "w-64 shadow-2xl" : ""
       )}
     >
       {/* Logo Section */}
       <div className="flex h-16 items-center justify-between px-6">
         {!isSidebarCollapsed && (
-          <motion.span 
+          <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-xl font-bold tracking-tight text-blue-600"
+            className="flex items-center gap-2 text-xl font-bold tracking-tight text-red-600"
           >
-            ForgeFlow
-          </motion.span>
+            <img src="/Artboard 1.png" alt="M-adverizin" className="h-7 w-7 object-contain" />
+            M-adverizin
+          </motion.div>
         )}
         <button 
           onClick={() => setSidebarCollapsed(!isSidebarCollapsed)}
@@ -77,10 +82,10 @@ export const Sidebar = ({ currentPath }: { currentPath: string }) => {
               className={cn(
                 "group flex items-center rounded-xl px-3 py-2.5 text-sm font-medium transition-all",
                 "hover:bg-slate-50 dark:hover:bg-slate-800",
-                currentPath === item.path ? "bg-blue-50 text-blue-600 dark:bg-blue-900/20" : "text-slate-600 dark:text-slate-400"
+                currentPath === item.path ? "bg-red-50 text-red-600 dark:bg-red-900/20" : "text-slate-600 dark:text-slate-400"
               )}
             >
-              <Icon size={20} className={cn("shrink-0", currentPath === item.path ? "text-blue-600" : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300")} />
+              <Icon size={20} className={cn("shrink-0", currentPath === item.path ? "text-red-600" : "text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300")} />
               {!isSidebarCollapsed && (
                 <motion.span
                   initial={{ opacity: 0, x: -10 }}

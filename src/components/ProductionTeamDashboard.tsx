@@ -16,7 +16,7 @@ export const ProductionTeamDashboard = () => {
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">My Workload</h1>
           <p className="text-slate-500">Focus on your assigned tasks for today.</p>
@@ -47,7 +47,7 @@ export const ProductionTeamDashboard = () => {
             </div>
           </div>
 
-          <div className="mt-12 grid grid-cols-2 gap-4">
+          <div className="mt-12 grid grid-cols-1 gap-4 md:grid-cols-2">
             <Button className="py-8 text-xl font-bold bg-emerald-600 hover:bg-emerald-700">
               <CheckCircle2 size={24} className="mr-2" /> Complete Task
             </Button>

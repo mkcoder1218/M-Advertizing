@@ -1,15 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Card, Button, Input } from './UI';
-import { 
-  Settings as SettingsIcon, 
-  Bell, 
-  Lock, 
-  User, 
-  Globe,
-  Database
-} from 'lucide-react';
+import { User } from 'lucide-react';
+import { useApp } from '../context/AppContext';
+import { useUpdateUser, useUploadProfileImage } from '../lib/api/hooks/useUserProfile';
 
 export const Settings = () => {
+  const { user } = useApp();
+  const [fullName, setFullName] = useState(user?.name || '');
+  const [email, setEmail] = useState(user?.email || '');
+  const [file, setFile] = useState<File | null>(null);
+  const updateMutation = useUpdateUser();
+  const uploadMutation = useUploadProfileImage();
+
+  const handleSave = async () => {
+    if (!user) return;
+    await updateMutation.mutateAsync({ id: user.id, payload: { fullName, email } });
+    if (file) await uploadMutation.mutateAsync({ id: user.id, file });
+  };
+
   return (
     <div className="space-y-8">
       <div>
@@ -18,53 +26,31 @@ export const Settings = () => {
       </div>
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        <div className="space-y-4">
-          <button className="flex w-full items-center space-x-3 rounded-xl bg-blue-50 p-4 text-blue-600 dark:bg-blue-900/20">
+        <div className="space-y-2">
+          <div className="flex w-full items-center space-x-3 rounded-xl bg-blue-50 p-4 text-blue-600 dark:bg-blue-900/20">
             <User size={20} />
             <span className="font-bold">Profile</span>
-          </button>
-          <button className="flex w-full items-center space-x-3 rounded-xl p-4 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <Bell size={20} />
-            <span className="font-medium">Notifications</span>
-          </button>
-          <button className="flex w-full items-center space-x-3 rounded-xl p-4 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <Lock size={20} />
-            <span className="font-medium">Security</span>
-          </button>
-          <button className="flex w-full items-center space-x-3 rounded-xl p-4 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <Globe size={20} />
-            <span className="font-medium">Localization</span>
-          </button>
-          <button className="flex w-full items-center space-x-3 rounded-xl p-4 text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">
-            <Database size={20} />
-            <span className="font-medium">Data & Privacy</span>
-          </button>
+          </div>
         </div>
 
         <div className="lg:col-span-2 space-y-6">
           <Card>
             <h3 className="text-lg font-bold mb-6">Profile Information</h3>
             <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">First Name</label>
-                  <Input defaultValue="Alexander" />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Last Name</label>
-                  <Input defaultValue="Forge" />
-                </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Full Name</label>
+                <Input value={fullName} onChange={(e) => setFullName(e.target.value)} />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Email Address</label>
-                <Input defaultValue="alex@forgeflow.com" />
+                <Input value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Bio</label>
-                <textarea className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-950" rows={4} defaultValue="Founder and CEO of ForgeFlow Industries. Passionate about modern manufacturing and efficient workflows." />
+                <label className="text-sm font-medium">Profile Image</label>
+                <input type="file" accept="image/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
               </div>
               <div className="pt-4">
-                <Button>Save Changes</Button>
+                <Button onClick={handleSave} isLoading={updateMutation.isPending || uploadMutation.isPending}>Save Changes</Button>
               </div>
             </div>
           </Card>

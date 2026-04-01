@@ -7,8 +7,10 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'Sales', icon: 'ShoppingCart', path: '/sales', roles: ['OWNER', 'SALES'] },
   { title: 'Orders', icon: 'ClipboardList', path: '/orders', roles: ['OWNER', 'MANAGER', 'ORDER_RECEPTION', 'SALES'] },
   { title: 'Procurement', icon: 'Truck', path: '/procurement', roles: ['OWNER', 'BUYER'] },
+  { title: 'Buyer Intake', icon: 'Package', path: '/buyer', roles: ['BUYER', 'OWNER'] },
   { title: 'Tenders', icon: 'FileText', path: '/tenders', roles: ['OWNER', 'TENDER'] },
   { title: 'HR & Employees', icon: 'Users', path: '/hr', roles: ['OWNER', 'HR'] },
+  { title: 'Attendance', icon: 'Clock', path: '/attendance', roles: ['OWNER', 'HR'] },
   { title: 'Analytics', icon: 'BarChart3', path: '/analytics', roles: ['OWNER', 'MANAGER'] },
   { title: 'Settings', icon: 'Settings', path: '/settings', roles: ['OWNER'] },
 ];

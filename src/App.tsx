@@ -12,6 +12,8 @@ import { HR } from './components/HR';
 import { ProductionTeamDashboard } from './components/ProductionTeamDashboard';
 import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
+import { BuyerInventory } from './components/BuyerInventory';
+import { Attendance } from './components/Attendance';
 import { Auth } from './components/Auth';
 import { NAV_ITEMS } from './constants';
 
@@ -69,6 +71,8 @@ function AppContent() {
       case '/sales': return <Sales />;
       case '/orders': return <Orders />;
       case '/procurement': return <Procurement />;
+      case '/buyer': return <BuyerInventory />;
+      case '/attendance': return <Attendance />;
       case '/tenders': return <Tenders />;
       case '/hr': return <HR />;
       case '/analytics': return <Analytics />;

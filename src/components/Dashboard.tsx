@@ -21,20 +21,36 @@ import {
   Area 
 } from 'recharts';
 import { Card, Badge } from './UI';
-import { MOCK_JOBS, MOCK_INVENTORY } from '../mockData';
 import { cn } from '../lib/utils';
+import { useAnalytics } from '../lib/api/hooks/useAnalytics';
+import { useOrders } from '../lib/api/hooks/useOrders';
+import { useProducts } from '../lib/api/hooks/useProducts';
+import { useNotifications } from '../lib/api/hooks/useNotifications';
 
-const data = [
-  { name: 'Mon', sales: 4000, prod: 2400 },
-  { name: 'Tue', sales: 3000, prod: 1398 },
-  { name: 'Wed', sales: 2000, prod: 9800 },
-  { name: 'Thu', sales: 2780, prod: 3908 },
-  { name: 'Fri', sales: 1890, prod: 4800 },
-  { name: 'Sat', sales: 2390, prod: 3800 },
-  { name: 'Sun', sales: 3490, prod: 4300 },
-];
+const dayLabel = (d: Date) => d.toLocaleDateString(undefined, { weekday: 'short' });
 
 export const Dashboard = () => {
+  const { data: analytics } = useAnalytics();
+  const overview = analytics?.dashboard;
+  const { data: ordersData } = useOrders(1, 100);
+  const { data: productsData } = useProducts(1, 50);
+  const { data: notifications = [] } = useNotifications();
+
+  const orders = ordersData?.items || [];
+  const products = productsData?.items || [];
+
+  const chartData = Array.from({ length: 7 }).map((_, i) => {
+    const date = new Date();
+    date.setDate(date.getDate() - (6 - i));
+    const key = date.toISOString().slice(0, 10);
+    const sales = orders.filter((o: any) => o.orderDate === key).length;
+    const prod = orders.filter((o: any) => o.approvalStatus === 'WORK_IN_PROGRESS' && o.orderDate === key).length;
+    return { name: dayLabel(date), sales, prod };
+  });
+
+  const activeJobs = orders.filter((o: any) => ['WORKER_ACCEPTED', 'WORK_IN_PROGRESS'].includes(o.approvalStatus || ''));
+  const alerts = products.slice(0, 3);
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -47,28 +63,28 @@ export const Dashboard = () => {
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
         <KPICard 
           label="Total Revenue" 
-          value="$128,430" 
+          value={`$${(overview?.totalRevenue ?? 0).toLocaleString()}`} 
           change={12.5} 
           trend="up" 
           icon={<DollarSign className="text-blue-600" />} 
         />
         <KPICard 
           label="Active Jobs" 
-          value="42" 
+          value={overview?.activeJobs ?? 0} 
           change={-2.4} 
           trend="down" 
           icon={<Factory className="text-amber-600" />} 
         />
         <KPICard 
           label="Inventory Value" 
-          value="$84,200" 
+          value={`$${(overview?.inventoryValue ?? 0).toLocaleString()}`} 
           change={5.1} 
           trend="up" 
           icon={<Package className="text-emerald-600" />} 
         />
         <KPICard 
           label="Pending Orders" 
-          value="18" 
+          value={overview?.pendingOrders ?? 0} 
           change={0} 
           trend="neutral" 
           icon={<Clock className="text-indigo-600" />} 
@@ -86,7 +102,7 @@ export const Dashboard = () => {
             </select>
           </div>
           <ResponsiveContainer width="100%" height="85%">
-            <AreaChart data={data}>
+            <AreaChart data={chartData}>
               <defs>
                 <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.1}/>
@@ -111,30 +127,20 @@ export const Dashboard = () => {
             <button className="text-xs text-blue-600 hover:underline">View All</button>
           </div>
           <div className="space-y-4">
-            {MOCK_INVENTORY.filter(i => i.status !== 'NORMAL').map(item => (
+            {alerts.length === 0 ? (
+              <div className="p-3 text-xs text-slate-400">No inventory alerts right now.</div>
+            ) : alerts.map((item: any) => (
               <div key={item.id} className="flex items-start space-x-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50">
-                <div className={cn(
-                  "mt-0.5 rounded-full p-1.5",
-                  item.status === 'OUT_OF_STOCK' ? "bg-red-100 text-red-600" : "bg-amber-100 text-amber-600"
-                )}>
+                <div className={cn("mt-0.5 rounded-full p-1.5", "bg-amber-100 text-amber-600")}>
                   <AlertCircle size={16} />
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-medium">{item.name} is {item.status.replace('_', ' ')}</p>
-                  <p className="text-xs text-slate-500">Current stock: {item.stock} {item.unit}. Min required: {item.minStock}</p>
+                  <p className="text-sm font-medium">{item.name}</p>
+                  <p className="text-xs text-slate-500">SKU: {item.sku} • Type: {item.type}</p>
                 </div>
-                <button className="text-xs font-medium text-blue-600">Restock</button>
+                <button className="text-xs font-medium text-blue-600">View</button>
               </div>
             ))}
-            <div className="flex items-start space-x-3 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50">
-              <div className="mt-0.5 rounded-full bg-blue-100 p-1.5 text-blue-600">
-                <Clock size={16} />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-medium">Production Delay: J-101</p>
-                <p className="text-xs text-slate-500">Welding A team reporting material shortage.</p>
-              </div>
-            </div>
           </div>
         </Card>
       </div>
@@ -158,25 +164,25 @@ export const Dashboard = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                {MOCK_JOBS.slice(0, 4).map(job => (
+                {activeJobs.slice(0, 4).map((job: any) => (
                   <tr key={job.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                    <td className="py-4 font-medium">{job.id}</td>
-                    <td className="py-4">{job.productName}</td>
-                    <td className="py-4 text-slate-500">{job.assignedTeam}</td>
+                    <td className="py-4 font-medium">{job.orderNumber || job.id}</td>
+                    <td className="py-4">{job.customerName}</td>
+                    <td className="py-4 text-slate-500">{job.assignedWorker || 'Unassigned'}</td>
                     <td className="py-4">
                       <div className="flex w-32 items-center space-x-2">
                         <div className="h-1.5 flex-1 rounded-full bg-slate-100 dark:bg-slate-800">
                           <div 
                             className="h-full rounded-full bg-blue-600" 
-                            style={{ width: `${job.progress}%` }}
+                            style={{ width: `${job.approvalStatus === 'WORK_IN_PROGRESS' ? 60 : 20}%` }}
                           />
                         </div>
-                        <span className="text-xs text-slate-500">{job.progress}%</span>
+                        <span className="text-xs text-slate-500">{job.approvalStatus === 'WORK_IN_PROGRESS' ? 60 : 20}%</span>
                       </div>
                     </td>
                     <td className="py-4">
-                      <Badge variant={job.status === 'COMPLETED' ? 'success' : 'info'}>
-                        {job.status.replace('_', ' ')}
+                      <Badge variant={job.approvalStatus === 'WORK_COMPLETED' ? 'success' : 'info'}>
+                        {job.approvalStatus?.replace(/_/g, ' ')}
                       </Badge>
                     </td>
                   </tr>
@@ -189,24 +195,17 @@ export const Dashboard = () => {
         <Card>
           <h3 className="mb-6 font-semibold">Activity Feed</h3>
           <div className="space-y-6">
-            <ActivityItem 
-              icon={<CheckCircle2 size={16} className="text-emerald-600" />}
-              title="Order #5501 Shipped"
-              time="2 hours ago"
-              user="Sarah Smith"
-            />
-            <ActivityItem 
-              icon={<Package size={16} className="text-blue-600" />}
-              title="Inventory Restocked"
-              time="5 hours ago"
-              user="Mike Johnson"
-            />
-            <ActivityItem 
-              icon={<Factory size={16} className="text-amber-600" />}
-              title="New Job Started: J-104"
-              time="Yesterday"
-              user="Welding Team A"
-            />
+            {notifications.length === 0 ? (
+              <div className="text-xs text-slate-400">No recent activity.</div>
+            ) : notifications.slice(0, 3).map((n: any) => (
+              <ActivityItem 
+                key={n.id}
+                icon={<CheckCircle2 size={16} className="text-emerald-600" />}
+                title={n.title}
+                time={n.createdAt ? new Date(n.createdAt).toLocaleString() : ''}
+                user={n.message}
+              />
+            ))}
           </div>
         </Card>
       </div>

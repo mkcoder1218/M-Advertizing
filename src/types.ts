@@ -64,11 +64,18 @@ export interface Message {
 
 export interface Order {
   id: string;
+  orderNumber?: string;
   customer: string;
   date: string;
   total: number;
   status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
-  approvalStatus: 'AWAITING_RECEPTION' | 'SENT_TO_WORKER' | 'WORKER_ACCEPTED' | 'WORKER_REJECTED';
+  approvalStatus:
+    | 'AWAITING_RECEPTION'
+    | 'SENT_TO_WORKER'
+    | 'WORKER_ACCEPTED'
+    | 'WORK_IN_PROGRESS'
+    | 'WORK_COMPLETED'
+    | 'WORKER_REJECTED';
   assignedWorker?: string;
   items: number;
   messages: Message[];

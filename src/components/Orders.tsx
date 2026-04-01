@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { 
   ClipboardList, 
   Search, 
@@ -9,17 +9,66 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { Card, Badge, Button, Input } from './UI';
-import { MOCK_ORDERS } from '../mockData';
 import { OrderDetailsModal } from './OrderDetailsModal';
 import { Order } from '../types';
 import { cn } from '../lib/utils';
+import { useCreateOrder, useOrders } from '../lib/api/hooks/useOrders';
+import { useProducts } from '../lib/api/hooks/useProducts';
+import { useWorkTypes } from '../lib/api/hooks/useWorkTypes';
+import { useApp } from '../context/AppContext';
 
 export const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [orders, setOrders] = useState<Order[]>(MOCK_ORDERS);
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const [search, setSearch] = useState('');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [form, setForm] = useState({
+    orderNumber: '',
+    customerName: '',
+    customerContact: '',
+    status: 'PENDING',
+    orderDate: new Date().toISOString().slice(0, 10),
+    total: '',
+    itemsCount: '',
+    items: [{ productId: '', quantity: 1, unitPrice: 0, workTypeId: '' }],
+  });
+  const { user } = useApp();
+
+  const { data } = useOrders(page, limit, search || undefined);
+  const createMutation = useCreateOrder();
+  const productsQuery = useProducts(1, 50, undefined, undefined);
+  const workTypesQuery = useWorkTypes();
+
+  const orders = useMemo<Order[]>(() => {
+    const items = data?.items || [];
+    return items.map((o: any) => ({
+      id: o.id,
+      orderNumber: o.orderNumber,
+      customer: o.customerName,
+      date: o.orderDate,
+      total: Number(o.total || 0),
+      status: o.status,
+      approvalStatus: o.approvalStatus,
+      assignedWorker: o.assignedWorker || undefined,
+      items: Number(o.itemsCount || 0),
+      messages: (o.OrderMessages || []).map((m: any) => ({
+        id: m.id,
+        sender: m.sender,
+        text: m.text,
+        timestamp: m.createdAt ? new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '',
+        role: m.role,
+      })),
+    }));
+  }, [data]);
+
+  useEffect(() => {
+    if (!selectedOrder) return;
+    const latest = orders.find((o) => o.id === selectedOrder.id);
+    if (latest) setSelectedOrder(latest);
+  }, [orders, selectedOrder?.id]);
 
   const handleUpdateOrder = (updatedOrder: Order) => {
-    setOrders(orders.map(o => o.id === updatedOrder.id ? updatedOrder : o));
     setSelectedOrder(updatedOrder);
   };
 
@@ -32,19 +81,19 @@ export const Orders = () => {
           onUpdate={handleUpdateOrder}
         />
       )}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Orders</h1>
           <p className="text-slate-500">Track and manage customer orders through the fulfillment lifecycle.</p>
         </div>
         <div className="flex items-center space-x-3">
           <Button variant="outline" size="sm">Download Report</Button>
-          <Button size="sm">Create Manual Order</Button>
+          <Button size="sm" onClick={() => setDrawerOpen(true)}>Create Manual Order</Button>
         </div>
       </div>
 
-      <div className="flex items-center space-x-4">
-        <Card className="flex-1 p-4 flex items-center justify-between">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <Card className="p-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600 dark:bg-blue-900/30">
               <ClipboardList size={20} />
@@ -56,7 +105,7 @@ export const Orders = () => {
           </div>
           <ArrowRight size={16} className="text-slate-300" />
         </Card>
-        <Card className="flex-1 p-4 flex items-center justify-between">
+        <Card className="p-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-xl bg-amber-100 flex items-center justify-center text-amber-600 dark:bg-amber-900/30">
               <ClipboardList size={20} />
@@ -68,7 +117,7 @@ export const Orders = () => {
           </div>
           <ArrowRight size={16} className="text-slate-300" />
         </Card>
-        <Card className="flex-1 p-4 flex items-center justify-between">
+        <Card className="p-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
             <div className="h-10 w-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 dark:bg-emerald-900/30">
               <ClipboardList size={20} />
@@ -83,15 +132,15 @@ export const Orders = () => {
       </div>
 
       <Card className="p-0 overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center space-x-4">
-            <div className="relative w-64">
+            <div className="relative w-full md:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <Input placeholder="Search orders..." className="pl-10" />
+              <Input placeholder="Search orders..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
             </div>
             <Button variant="outline" size="icon"><Filter size={18} /></Button>
           </div>
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Badge variant="info">All Orders</Badge>
             <Badge variant="default">Pending</Badge>
             <Badge variant="default">Shipped</Badge>
@@ -113,10 +162,12 @@ export const Orders = () => {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {orders.map((order) => (
                 <tr key={order.id} className="group hover:bg-slate-50 dark:hover:bg-slate-800/50">
-                  <td className="px-6 py-4 font-bold text-blue-600">{order.id}</td>
+                  <td className="px-6 py-4 font-bold text-blue-600">{order.orderNumber || order.id}</td>
                   <td className="px-6 py-4 font-medium">{order.customer}</td>
                   <td className="px-6 py-4">
                     <Badge variant={
+                      order.approvalStatus === 'WORK_COMPLETED' ? 'success' :
+                      order.approvalStatus === 'WORK_IN_PROGRESS' ? 'info' :
                       order.approvalStatus === 'WORKER_ACCEPTED' ? 'success' : 
                       order.approvalStatus === 'WORKER_REJECTED' ? 'danger' : 
                       order.approvalStatus === 'SENT_TO_WORKER' ? 'warning' : 'default'
@@ -159,6 +210,173 @@ export const Orders = () => {
           </table>
         </div>
       </Card>
+
+      {/* Pagination */}
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-slate-500">
+          Page {page} of {data ? Math.ceil(data.total / data.limit) : 1}
+        </div>
+        <div className="space-x-2">
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))}>
+            Previous
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(data ? Math.ceil(data.total / data.limit) : 1, p + 1))}>
+            Next
+          </Button>
+        </div>
+      </div>
+
+      {/* Drawer */}
+      <div className={cn('fixed inset-0 z-50', drawerOpen ? 'pointer-events-auto' : 'pointer-events-none')}>
+        <div
+          className={cn('absolute inset-0 bg-black/40 transition-opacity', drawerOpen ? 'opacity-100' : 'opacity-0')}
+          onClick={() => setDrawerOpen(false)}
+        />
+        <div
+          className={cn(
+            'absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl dark:bg-slate-900 transition-transform',
+            drawerOpen ? 'translate-x-0' : 'translate-x-full'
+          )}
+        >
+          <div className="flex h-full flex-col">
+            <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <h3 className="text-lg font-bold">Create Manual Order</h3>
+              <p className="text-sm text-slate-500">Capture order details and assign status.</p>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Order Number</label>
+                <Input value="Auto-generated by system" disabled />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Customer Name</label>
+                <Input value={form.customerName} onChange={(e) => setForm({ ...form, customerName: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Customer Contact</label>
+                <Input value={form.customerContact} onChange={(e) => setForm({ ...form, customerContact: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Status</label>
+                  <select
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  >
+                    <option value="PENDING">PENDING</option>
+                    <option value="PROCESSING">PROCESSING</option>
+                    <option value="SHIPPED">SHIPPED</option>
+                    <option value="DELIVERED">DELIVERED</option>
+                    <option value="CANCELLED">CANCELLED</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Order Date</label>
+                  <Input type="date" value={form.orderDate} onChange={(e) => setForm({ ...form, orderDate: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Total</label>
+                  <Input value={form.total} onChange={(e) => setForm({ ...form, total: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Items Count</label>
+                  <Input value={form.itemsCount} onChange={(e) => setForm({ ...form, itemsCount: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Order Items</label>
+                <div className="space-y-3">
+                  {form.items.map((it, idx) => (
+                    <div key={idx} className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                      <select
+                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+                        value={it.productId}
+                        onChange={(e) => {
+                          const items = [...form.items];
+                          items[idx].productId = e.target.value;
+                          setForm({ ...form, items });
+                        }}
+                      >
+                        <option value="">Select product</option>
+                        {productsQuery.data?.items.map((p: any) => (
+                          <option key={p.id} value={p.id}>{p.name}</option>
+                        ))}
+                      </select>
+                      <Input
+                        type="number"
+                        value={it.quantity}
+                        onChange={(e) => {
+                          const items = [...form.items];
+                          items[idx].quantity = Number(e.target.value);
+                          setForm({ ...form, items });
+                        }}
+                        placeholder="Qty"
+                      />
+                      <Input
+                        type="number"
+                        value={it.unitPrice}
+                        onChange={(e) => {
+                          const items = [...form.items];
+                          items[idx].unitPrice = Number(e.target.value);
+                          setForm({ ...form, items });
+                        }}
+                        placeholder="Unit price"
+                      />
+                      <select
+                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+                        value={it.workTypeId}
+                        onChange={(e) => {
+                          const items = [...form.items];
+                          items[idx].workTypeId = e.target.value;
+                          setForm({ ...form, items });
+                        }}
+                      >
+                        <option value="">Work type</option>
+                        {workTypesQuery.data?.map((w) => (
+                          <option key={w.id} value={w.id}>{w.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setForm({ ...form, items: [...form.items, { productId: '', quantity: 1, unitPrice: 0, workTypeId: '' }] })}
+                  >
+                    Add Item
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <div className="border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+              <div className="flex items-center justify-end space-x-3">
+                <Button variant="outline" onClick={() => setDrawerOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={async () => {
+                    await createMutation.mutateAsync({
+                      customerName: form.customerName,
+                      customerContact: form.customerContact || undefined,
+                      status: form.status as any,
+                      orderDate: form.orderDate,
+                      approvalStatus: 'AWAITING_RECEPTION',
+                      total: Number(form.total || 0),
+                      itemsCount: Number(form.itemsCount || 0),
+                      items: form.items.filter((i) => i.productId),
+                    } as any);
+                    setDrawerOpen(false);
+                  }}
+                  isLoading={createMutation.isPending}
+                >
+                  Create
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

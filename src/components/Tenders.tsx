@@ -2,52 +2,60 @@ import React, { useState } from 'react';
 import { 
   FileText, 
   Plus, 
-  Search, 
   Calendar, 
   DollarSign,
   Briefcase,
   MoreVertical,
-  ChevronRight,
   CheckCircle2,
-  XCircle,
-  UserPlus
+  XCircle
 } from 'lucide-react';
 import { Card, Badge, Button, Input } from './UI';
-import { MOCK_TENDERS } from '../mockData';
-import { Tender } from '../types';
 import { useApp } from '../context/AppContext';
 import { cn } from '../lib/utils';
+import { useCreateTender, useTenders, useUpdateTender } from '../lib/api/hooks/useTenders';
 
 export const Tenders = () => {
   const { role, user: currentUser } = useApp();
-  const [tenders, setTenders] = useState<Tender[]>(MOCK_TENDERS);
+  const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
+  const [limit] = useState(10);
+  const { data } = useTenders({ page, limit, search });
+  const tenders = data?.items || [];
+  const createTender = useCreateTender();
+  const updateTender = useUpdateTender();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [form, setForm] = useState({
+    title: '',
+    clientName: '',
+    value: '',
+    dueDate: '',
+    description: '',
+  });
 
-  const updateTenderStatus = (id: string, status: Tender['approvalStatus']) => {
-    setTenders(tenders.map(t => t.id === id ? { ...t, approvalStatus: status } : t));
+  const updateTenderStatus = (id: string, approvalStatus: string) => {
+    updateTender.mutate({ id, payload: { approvalStatus } });
   };
 
   const assignTender = (id: string, workerName: string) => {
-    setTenders(tenders.map(t => t.id === id ? { 
-      ...t, 
-      assignedWorker: workerName, 
-      assignedBy: currentUser.name,
-      approvalStatus: 'ASSIGNED_TO_WORKER' 
-    } : t));
+    updateTender.mutate({
+      id,
+      payload: { assignedWorker: workerName, assignedBy: currentUser.name, approvalStatus: 'ASSIGNED_TO_WORKER' },
+    });
   };
 
   const isManagement = role === 'OWNER' || role === 'MANAGER' || role === 'HR';
-  const isTenderTeam = role === 'TENDER';
+  const isTenderTeam = role === 'TENDER' || isManagement;
   const isWorker = role === 'PRODUCTION_TEAM';
 
   return (
     <div className="space-y-8">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Tenders & Contracts</h1>
           <p className="text-slate-500">Manage bidding processes and large-scale contracts.</p>
         </div>
         {isTenderTeam && (
-          <Button size="sm">
+          <Button size="sm" onClick={() => setDrawerOpen(true)}>
             <Plus size={16} className="mr-2" /> New Tender
           </Button>
         )}
@@ -86,10 +94,15 @@ export const Tenders = () => {
 
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-6">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <h3 className="text-lg font-bold">Project Pipeline</h3>
             <div className="flex items-center space-x-2">
-              <Input placeholder="Search tenders..." className="w-64" />
+              <Input
+                placeholder="Search tenders..."
+                className="w-full md:w-64"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
             </div>
           </div>
           
@@ -112,16 +125,16 @@ export const Tenders = () => {
                           {tender.approvalStatus.replace(/_/g, ' ')}
                         </Badge>
                       </div>
-                      <p className="text-sm text-slate-500 mt-1">{tender.client}</p>
+                      <p className="text-sm text-slate-500 mt-1">{tender.clientName}</p>
                       
                       <div className="mt-4 flex items-center space-x-6">
                         <div className="flex items-center text-xs text-slate-500">
                           <DollarSign size={14} className="mr-1" />
-                          ${tender.value.toLocaleString()}
+                          ${Number(tender.value || 0).toLocaleString()}
                         </div>
                         <div className="flex items-center text-xs text-slate-500">
                           <Calendar size={14} className="mr-1" />
-                          Due {tender.deadline}
+                          Due {tender.dueDate || 'N/A'}
                         </div>
                         {tender.assignedWorker && (
                           <div className="flex items-center text-xs font-bold text-blue-600">
@@ -195,6 +208,88 @@ export const Tenders = () => {
               Analyze Performance
             </Button>
           </Card>
+        </div>
+      </div>
+
+      <div className="flex items-center justify-between">
+        <div className="text-sm text-slate-500">Page {page} of {data ? Math.ceil(data.total / data.limit) : 1}</div>
+        <div className="space-x-2">
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Button>
+          <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(data ? Math.ceil(data.total / data.limit) : 1, p + 1))}>Next</Button>
+        </div>
+      </div>
+
+      {/* Drawer */}
+      <div className={cn('fixed inset-0 z-50', drawerOpen ? 'pointer-events-auto' : 'pointer-events-none')}>
+        <div
+          className={cn('absolute inset-0 bg-black/40 transition-opacity', drawerOpen ? 'opacity-100' : 'opacity-0')}
+          onClick={() => setDrawerOpen(false)}
+        />
+        <div
+          className={cn(
+            'absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl dark:bg-slate-900 transition-transform',
+            drawerOpen ? 'translate-x-0' : 'translate-x-full'
+          )}
+        >
+          <div className="flex h-full flex-col">
+            <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
+              <h3 className="text-lg font-bold">New Tender</h3>
+              <p className="text-sm text-slate-500">Add a new tender record.</p>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Title</label>
+                <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Client</label>
+                <Input value={form.clientName} onChange={(e) => setForm({ ...form, clientName: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Value</label>
+                <Input
+                  type="number"
+                  value={form.value}
+                  onChange={(e) => setForm({ ...form, value: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Due Date</label>
+                <Input type="date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Description</label>
+                <textarea
+                  className="w-full rounded-xl border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+                  rows={3}
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="border-t border-slate-100 px-6 py-4 dark:border-slate-800">
+              <div className="flex items-center justify-end space-x-3">
+                <Button variant="outline" onClick={() => setDrawerOpen(false)}>Cancel</Button>
+                <Button
+                  onClick={async () => {
+                    if (!form.title || !form.clientName || !form.value) return;
+                    await createTender.mutateAsync({
+                      title: form.title,
+                      clientName: form.clientName,
+                      value: Number(form.value),
+                      dueDate: form.dueDate || undefined,
+                      description: form.description || undefined,
+                    });
+                    setDrawerOpen(false);
+                    setForm({ title: '', clientName: '', value: '', dueDate: '', description: '' });
+                  }}
+                  isLoading={createTender.isPending}
+                >
+                  Save
+                </Button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
