@@ -12,10 +12,11 @@ import { HR } from './components/HR';
 import { ProductionTeamDashboard } from './components/ProductionTeamDashboard';
 import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
+import { Auth } from './components/Auth';
 import { NAV_ITEMS } from './constants';
 
 function AppContent() {
-  const { role } = useApp();
+  const { role, isAuthenticated } = useApp();
   const [currentPath, setCurrentPath] = useState('/');
 
   // Simple routing logic for demo
@@ -28,6 +29,26 @@ function AppContent() {
     
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
+
+  // Mock navigation for demo (intercepting clicks)
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const anchor = target.closest('a');
+      if (anchor && anchor.getAttribute('href')?.startsWith('/')) {
+        e.preventDefault();
+        const path = anchor.getAttribute('href') || '/';
+        window.history.pushState({}, '', path);
+        setCurrentPath(path);
+      }
+    };
+    document.addEventListener('click', handleClick);
+    return () => document.removeEventListener('click', handleClick);
+  }, []);
+
+  if (!isAuthenticated) {
+    return <Auth />;
+  }
 
   const renderContent = () => {
     // Check if user has access to current path
@@ -55,22 +76,6 @@ function AppContent() {
       default: return <Dashboard />;
     }
   };
-
-  // Mock navigation for demo (intercepting clicks)
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      const anchor = target.closest('a');
-      if (anchor && anchor.getAttribute('href')?.startsWith('/')) {
-        e.preventDefault();
-        const path = anchor.getAttribute('href') || '/';
-        window.history.pushState({}, '', path);
-        setCurrentPath(path);
-      }
-    };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, []);
 
   return (
     <Layout currentPath={currentPath}>

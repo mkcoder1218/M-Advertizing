@@ -1,11 +1,13 @@
 import React from 'react';
-import { Search, Bell, Moon, Sun, ChevronDown } from 'lucide-react';
+import { Search, Bell, Moon, Sun, ChevronDown, LogOut, User as UserIcon, Settings } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ROLES_CONFIG } from '../constants';
 import { UserRole } from '../types';
 
 export const Topbar = () => {
-  const { isDarkMode, toggleDarkMode, role, setRole, user } = useApp();
+  const { isDarkMode, toggleDarkMode, role, setRole, user, logout } = useApp();
+
+  if (!user) return null;
 
   return (
     <header className="sticky top-0 z-30 flex h-16 w-full items-center justify-between border-b border-slate-200 bg-white/80 px-8 backdrop-blur-md transition-colors duration-300 dark:border-slate-800 dark:bg-slate-900/80">
@@ -56,10 +58,39 @@ export const Topbar = () => {
 
         <div className="h-8 w-px bg-slate-200 dark:bg-slate-800"></div>
 
-        <button className="flex items-center space-x-2 rounded-xl p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
-          <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-full object-cover" />
-          <ChevronDown size={16} className="text-slate-400" />
-        </button>
+        <div className="relative group">
+          <button className="flex items-center space-x-2 rounded-xl p-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+            <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-full object-cover" />
+            <div className="hidden text-left md:block">
+              <p className="text-xs font-bold leading-none">{user.name}</p>
+              <p className="text-[10px] text-slate-500">{ROLES_CONFIG[role].label}</p>
+            </div>
+            <ChevronDown size={16} className="text-slate-400" />
+          </button>
+          
+          <div className="absolute right-0 top-full mt-2 hidden w-56 rounded-2xl border border-slate-100 bg-white p-2 shadow-2xl group-hover:block dark:border-slate-800 dark:bg-slate-900">
+            <div className="px-3 py-2 border-b border-slate-50 dark:border-slate-800 mb-1">
+              <p className="text-sm font-bold">{user.name}</p>
+              <p className="text-xs text-slate-500 truncate">{user.email}</p>
+            </div>
+            <button className="flex w-full items-center space-x-2 rounded-xl px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
+              <UserIcon size={16} />
+              <span>My Profile</span>
+            </button>
+            <button className="flex w-full items-center space-x-2 rounded-xl px-3 py-2 text-sm text-slate-600 hover:bg-slate-50 dark:text-slate-400 dark:hover:bg-slate-800">
+              <Settings size={16} />
+              <span>Account Settings</span>
+            </button>
+            <div className="my-1 h-px bg-slate-50 dark:bg-slate-800"></div>
+            <button 
+              onClick={logout}
+              className="flex w-full items-center space-x-2 rounded-xl px-3 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-900/20"
+            >
+              <LogOut size={16} />
+              <span>Sign Out</span>
+            </button>
+          </div>
+        </div>
       </div>
     </header>
   );
