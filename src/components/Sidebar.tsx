@@ -60,7 +60,7 @@ export const Sidebar = ({ currentPath, isMobile }: { currentPath: string; isMobi
             className="flex items-center gap-2 text-xl font-bold tracking-tight text-red-600"
           >
             <img src="/Artboard 1.png" alt="M-adverizin" className="h-7 w-7 object-contain" />
-            M-adverizing
+            M-Advertising
           </motion.div>
         )}
         <button 
