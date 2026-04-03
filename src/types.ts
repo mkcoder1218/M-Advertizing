@@ -15,6 +15,7 @@ export interface User {
   email: string;
   role: UserRole;
   avatar?: string;
+  workTypeId?: string | null;
 }
 
 export interface NavItem {

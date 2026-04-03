@@ -31,8 +31,8 @@ const iconMap: Record<string, any> = {
   FileText,
   Users,
   BarChart3,
-  Clock,
   Settings
+  ,Clock
 };
 
 export const Sidebar = ({ currentPath, isMobile }: { currentPath: string; isMobile?: boolean }) => {

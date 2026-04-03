@@ -91,10 +91,6 @@ export const OrderDetailsModal = ({ order, onClose, onUpdate }: OrderDetailsModa
     updateMutation.mutate({ id: order.id, payload: { approvalStatus: status } as any });
   };
 
-  const assignWorker = (workerName: string) => {
-    onUpdate({ ...order, assignedWorker: workerName, approvalStatus: 'SENT_TO_WORKER' });
-    updateMutation.mutate({ id: order.id, payload: { assignedWorker: workerName, approvalStatus: 'SENT_TO_WORKER' } as any });
-  };
 
   const isWorker = role === 'PRODUCTION_TEAM';
   const isReceptionist = role === 'ORDER_RECEPTION' || role === 'OWNER' || role === 'MANAGER';
@@ -163,8 +159,8 @@ export const OrderDetailsModal = ({ order, onClose, onUpdate }: OrderDetailsModa
                     icon={<CheckCircle2 size={16} />} 
                   />
                   <StatusStep 
-                    active={!!order.assignedWorker} 
-                    label={order.assignedWorker ? `Assigned to ${order.assignedWorker}` : "Awaiting Assignment"} 
+                    active={order.approvalStatus === 'SENT_TO_WORKER' || order.approvalStatus === 'WORKER_ACCEPTED' || order.approvalStatus === 'WORK_IN_PROGRESS' || order.approvalStatus === 'WORK_COMPLETED'} 
+                    label="Sent to Production" 
                     icon={<User size={16} />} 
                   />
                   <StatusStep 
@@ -192,21 +188,11 @@ export const OrderDetailsModal = ({ order, onClose, onUpdate }: OrderDetailsModa
                 
                 {isReceptionist && order.approvalStatus === 'AWAITING_RECEPTION' && (
                   <Button className="w-full" onClick={() => updateApproval('SENT_TO_WORKER')}>
-                    Accept Order & Move to Assignment
+                    Accept Order & Send to Production
                   </Button>
                 )}
 
-                {isReceptionist && order.approvalStatus === 'SENT_TO_WORKER' && !order.assignedWorker && (
-                  <div className="space-y-3">
-                    <p className="text-sm font-medium">Assign to Production Team:</p>
-                    <div className="grid grid-cols-2 gap-2">
-                      <Button variant="outline" size="sm" onClick={() => assignWorker('John Doe')}>John Doe (Welding)</Button>
-                      <Button variant="outline" size="sm" onClick={() => assignWorker('Mike Johnson')}>Mike Johnson (CNC)</Button>
-                    </div>
-                  </div>
-                )}
-
-                {isWorker && order.approvalStatus === 'SENT_TO_WORKER' && order.assignedWorker === currentUser.name && (
+                {isWorker && order.approvalStatus === 'SENT_TO_WORKER' && (
                   <div className="grid grid-cols-2 gap-4">
                     <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => updateApproval('WORKER_ACCEPTED')}>
                       <CheckCircle2 size={18} className="mr-2" /> Accept Job
@@ -217,13 +203,13 @@ export const OrderDetailsModal = ({ order, onClose, onUpdate }: OrderDetailsModa
                   </div>
                 )}
 
-                {isWorker && order.approvalStatus === 'WORKER_ACCEPTED' && order.assignedWorker === currentUser.name && (
+                {isWorker && order.approvalStatus === 'WORKER_ACCEPTED' && (
                   <Button className="w-full" onClick={() => updateApproval('WORK_IN_PROGRESS')}>
                     Mark In Progress
                   </Button>
                 )}
 
-                {isWorker && order.approvalStatus === 'WORK_IN_PROGRESS' && order.assignedWorker === currentUser.name && (
+                {isWorker && order.approvalStatus === 'WORK_IN_PROGRESS' && (
                   <Button className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={() => updateApproval('WORK_COMPLETED')}>
                     Mark Work Completed
                   </Button>

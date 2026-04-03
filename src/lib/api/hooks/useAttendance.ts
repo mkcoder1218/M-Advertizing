@@ -25,3 +25,20 @@ export const useUpdateAttendance = () => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['attendance'] }),
   });
 };
+
+export const useMyAttendance = (date?: string) =>
+  useQuery({
+    queryKey: ['attendance-me', date],
+    queryFn: () => attendanceResource.me({ date }),
+  });
+
+export const useMarkAttendance = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: { lat: number; lng: number }) => attendanceResource.mark(payload),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['attendance'] });
+      qc.invalidateQueries({ queryKey: ['attendance-me'] });
+    },
+  });
+};

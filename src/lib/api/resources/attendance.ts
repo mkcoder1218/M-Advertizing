@@ -25,4 +25,12 @@ export const attendanceResource = {
     const { data } = await api.put<AttendanceRecord>(`/api/v1/attendance/${id}`, payload);
     return data;
   },
+  me: async (params?: { date?: string }) => {
+    const { data } = await api.get<AttendanceRecord | null>('/api/v1/attendance/me', { params });
+    return data;
+  },
+  mark: async (payload: { lat: number; lng: number }) => {
+    const { data } = await api.post<AttendanceRecord>('/api/v1/attendance/mark', payload);
+    return data;
+  },
 };

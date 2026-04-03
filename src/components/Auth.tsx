@@ -35,6 +35,7 @@ export const Auth = () => {
           name: data.user.fullName || data.user.email.split('@')[0],
           email: data.user.email,
           role,
+          workTypeId: data.user.workTypeId || data.user.WorkType?.id || null,
         },
         data.token,
         data.refreshToken

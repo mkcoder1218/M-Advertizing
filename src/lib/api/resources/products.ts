@@ -6,6 +6,7 @@ export interface ProductPayload {
   type: 'raw' | 'finished';
   unit: string;
   description?: string;
+  sellingPrice?: number;
 }
 
 export interface Product {
@@ -15,6 +16,8 @@ export interface Product {
   type: 'raw' | 'finished';
   unit: string;
   description?: string | null;
+  sellingPrice?: number | null;
+  stock?: number;
   Upload?: { url: string };
 }
 

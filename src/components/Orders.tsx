@@ -12,7 +12,7 @@ import { Card, Badge, Button, Input } from './UI';
 import { OrderDetailsModal } from './OrderDetailsModal';
 import { Order } from '../types';
 import { cn } from '../lib/utils';
-import { useCreateOrder, useOrders } from '../lib/api/hooks/useOrders';
+import { useCreateOrder, useOrders, useUpdateOrder } from '../lib/api/hooks/useOrders';
 import { useProducts } from '../lib/api/hooks/useProducts';
 import { useWorkTypes } from '../lib/api/hooks/useWorkTypes';
 import { useApp } from '../context/AppContext';
@@ -28,6 +28,7 @@ export const Orders = () => {
     customerName: '',
     customerContact: '',
     status: 'PENDING',
+    approvalStatus: 'AWAITING_RECEPTION',
     orderDate: new Date().toISOString().slice(0, 10),
     total: '',
     itemsCount: '',
@@ -37,6 +38,7 @@ export const Orders = () => {
 
   const { data } = useOrders(page, limit, search || undefined);
   const createMutation = useCreateOrder();
+  const updateMutation = useUpdateOrder();
   const productsQuery = useProducts(1, 50, undefined, undefined);
   const workTypesQuery = useWorkTypes();
 
@@ -174,6 +176,20 @@ export const Orders = () => {
                     }>
                       {order.approvalStatus.replace(/_/g, ' ')}
                     </Badge>
+                    <div className="mt-2">
+                      <select
+                        className="h-8 rounded-lg border border-slate-200 bg-white px-2 text-xs dark:border-slate-800 dark:bg-slate-950"
+                        value={order.approvalStatus}
+                        onChange={(e) => updateMutation.mutate({ id: order.id, payload: { approvalStatus: e.target.value } as any })}
+                      >
+                        <option value="AWAITING_RECEPTION">AWAITING RECEPTION</option>
+                        <option value="SENT_TO_WORKER">SEND TO PRODUCTION</option>
+                        <option value="WORKER_ACCEPTED">WORKER ACCEPTED</option>
+                        <option value="WORK_IN_PROGRESS">WORK IN PROGRESS</option>
+                        <option value="WORK_COMPLETED">WORK COMPLETED</option>
+                        <option value="WORKER_REJECTED">WORKER REJECTED</option>
+                      </select>
+                    </div>
                   </td>
                   <td className="px-6 py-4 text-slate-500">
                     {order.assignedWorker || <span className="italic text-slate-300">Unassigned</span>}
@@ -272,6 +288,21 @@ export const Orders = () => {
                   </select>
                 </div>
                 <div className="space-y-2">
+                  <label className="text-sm font-medium">Workflow</label>
+                  <select
+                    className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+                    value={form.approvalStatus}
+                    onChange={(e) => setForm({ ...form, approvalStatus: e.target.value })}
+                  >
+                    <option value="AWAITING_RECEPTION">AWAITING RECEPTION</option>
+                    <option value="SENT_TO_WORKER">SEND TO PRODUCTION</option>
+                    <option value="WORKER_ACCEPTED">WORKER ACCEPTED</option>
+                    <option value="WORK_IN_PROGRESS">WORK IN PROGRESS</option>
+                    <option value="WORK_COMPLETED">WORK COMPLETED</option>
+                    <option value="WORKER_REJECTED">WORKER REJECTED</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
                   <label className="text-sm font-medium">Order Date</label>
                   <Input type="date" value={form.orderDate} onChange={(e) => setForm({ ...form, orderDate: e.target.value })} />
                 </div>
@@ -361,7 +392,7 @@ export const Orders = () => {
                       customerContact: form.customerContact || undefined,
                       status: form.status as any,
                       orderDate: form.orderDate,
-                      approvalStatus: 'AWAITING_RECEPTION',
+                      approvalStatus: form.approvalStatus,
                       total: Number(form.total || 0),
                       itemsCount: Number(form.itemsCount || 0),
                       items: form.items.filter((i) => i.productId),

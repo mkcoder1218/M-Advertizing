@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import { Card, Badge, Button } from './UI';
 import { cn } from '../lib/utils';
-import { useOrders } from '../lib/api/hooks/useOrders';
+import { useOrders, useUpdateOrder } from '../lib/api/hooks/useOrders';
 import { useApp } from '../context/AppContext';
 import { OrderDetailsModal } from './OrderDetailsModal';
 import { Order } from '../types';
@@ -18,6 +18,7 @@ import { Order } from '../types';
 export const Production = () => {
   const { user, role } = useApp();
   const { data } = useOrders(1, 50);
+  const updateOrder = useUpdateOrder();
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   const orders = useMemo<Order[]>(() => {
@@ -32,6 +33,7 @@ export const Production = () => {
       approvalStatus: o.approvalStatus,
       assignedWorker: o.assignedWorker || undefined,
       items: Number(o.itemsCount || 0),
+      itemsWorkTypes: (o.OrderItems || []).map((i: any) => i.workTypeId).filter(Boolean),
       messages: (o.OrderMessages || []).map((m: any) => ({
         id: m.id,
         sender: m.sender,
@@ -42,10 +44,12 @@ export const Production = () => {
     }));
   }, [data]);
 
-  const visible = orders.filter((o) => {
+  const visible = orders.filter((o: any) => {
     if (role !== 'PRODUCTION_TEAM') return true;
-    if (!user?.name) return true;
-    return o.assignedWorker === user.name || !o.assignedWorker;
+    const userWorkTypeId = user?.workTypeId;
+    const orderWorkTypes = (o as any).itemsWorkTypes || [];
+    const matchesWorkType = !userWorkTypeId || orderWorkTypes.includes(userWorkTypeId);
+    return matchesWorkType;
   });
 
   const pending = visible.filter((o) => o.approvalStatus === 'SENT_TO_WORKER');
@@ -95,6 +99,8 @@ export const Production = () => {
           color="bg-amber-500"
           orders={pending}
           onSelect={setSelectedOrder}
+          onAccept={(o: Order) => updateOrder.mutate({ id: o.id, payload: { approvalStatus: 'WORKER_ACCEPTED', assignedWorker: user?.name } as any })}
+          showAccept={role === 'PRODUCTION_TEAM'}
         />
         <StatusColumn
           title="Accepted / In Progress"
@@ -115,7 +121,7 @@ export const Production = () => {
   );
 };
 
-const StatusColumn = ({ title, count, color, orders, onSelect }: any) => (
+const StatusColumn = ({ title, count, color, orders, onSelect, onAccept, showAccept }: any) => (
   <div className="flex flex-col space-y-4">
     <div className="flex items-center justify-between px-2">
       <div className="flex items-center space-x-2">
@@ -131,13 +137,19 @@ const StatusColumn = ({ title, count, color, orders, onSelect }: any) => (
     </div>
     <div className="flex-1 space-y-4 rounded-2xl bg-slate-100/50 p-3 dark:bg-slate-800/30">
       {orders.map((o: Order) => (
-        <OrderCard key={o.id} order={o} onClick={() => onSelect(o)} />
+        <OrderCard
+          key={o.id}
+          order={o}
+          onClick={() => onSelect(o)}
+          onAccept={onAccept}
+          showAccept={showAccept}
+        />
       ))}
     </div>
   </div>
 );
 
-const OrderCard = ({ order, ...props }: { order: Order; [key: string]: any }) => (
+const OrderCard = ({ order, onAccept, showAccept, ...props }: { order: Order; onAccept?: (o: Order) => void; showAccept?: boolean; [key: string]: any }) => (
   <motion.div
     layout
     initial={{ opacity: 0, y: 10 }}
@@ -181,6 +193,20 @@ const OrderCard = ({ order, ...props }: { order: Order; [key: string]: any }) =>
         </div>
         <Badge variant="info">{order.approvalStatus.replace(/_/g, ' ')}</Badge>
       </div>
+      {showAccept && order.approvalStatus === 'SENT_TO_WORKER' && (
+        <div className="mt-3">
+          <Button
+            size="sm"
+            className="w-full"
+            onClick={(e) => {
+              e.stopPropagation();
+              onAccept?.(order);
+            }}
+          >
+            Accept Work
+          </Button>
+        </div>
+      )}
     </div>
   </motion.div>
 );

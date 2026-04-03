@@ -12,10 +12,10 @@ import { HR } from './components/HR';
 import { ProductionTeamDashboard } from './components/ProductionTeamDashboard';
 import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
-import { BuyerInventory } from './components/BuyerInventory';
-import { Attendance } from './components/Attendance';
+import { Requests } from './components/Requests';
 import { Auth } from './components/Auth';
 import { NAV_ITEMS } from './constants';
+import { Attendance } from './components/Attendance';
 
 function AppContent() {
   const { role, isAuthenticated } = useApp();
@@ -71,7 +71,7 @@ function AppContent() {
       case '/sales': return <Sales />;
       case '/orders': return <Orders />;
       case '/procurement': return <Procurement />;
-      case '/buyer': return <BuyerInventory />;
+      case '/requests': return <Requests />;
       case '/attendance': return <Attendance />;
       case '/tenders': return <Tenders />;
       case '/hr': return <HR />;

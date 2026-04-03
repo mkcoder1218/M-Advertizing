@@ -46,7 +46,8 @@ export const Sales = () => {
     }));
   };
 
-  const subtotal = cart.reduce((acc, item) => acc + ((item.price || 0) * item.qty), 0);
+  const toNumber = (v: any) => (v === null || v === undefined || v === '' ? 0 : Number(v));
+  const subtotal = cart.reduce((acc, item) => acc + (toNumber(item.sellingPrice ?? item.price) * item.qty), 0);
   const tax = subtotal * 0.15;
   const total = subtotal + tax;
 
@@ -73,14 +74,14 @@ export const Sales = () => {
             <button
               key={item.id}
               onClick={() => addToCart(item)}
-              disabled={item.stock === 0}
+              disabled={(item.stock ?? 0) === 0}
               className={cn(
                 "group flex flex-col items-start rounded-2xl border border-slate-200 bg-white p-4 text-left transition-all hover:border-blue-500 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900",
-                item.stock === 0 && "opacity-50 grayscale"
+                (item.stock ?? 0) === 0 && "opacity-50 grayscale"
               )}
             >
               <div className="mb-3 flex w-full items-center justify-between">
-                <Badge variant={item.stock > 10 ? 'success' : 'warning'}>
+                <Badge variant={(item.stock ?? 0) > 10 ? 'success' : 'warning'}>
                   {item.stock ?? 0} in stock
                 </Badge>
                 <span className="text-xs font-mono text-slate-400">{item.sku}</span>
@@ -88,7 +89,7 @@ export const Sales = () => {
               <h3 className="mb-1 font-bold text-slate-900 group-hover:text-blue-600 dark:text-white">{item.name}</h3>
               <p className="text-xs text-slate-500">{item.type}</p>
               <div className="mt-4 flex w-full items-center justify-between">
-                <span className="text-lg font-black text-slate-900 dark:text-white">${(item.price || 0).toFixed(2)}</span>
+                <span className="text-lg font-black text-slate-900 dark:text-white">${toNumber(item.sellingPrice ?? item.price).toFixed(2)}</span>
                 <div className="rounded-lg bg-blue-50 p-1.5 text-blue-600 opacity-0 transition-opacity group-hover:opacity-100 dark:bg-blue-900/20">
                   <Plus size={18} />
                 </div>
@@ -120,7 +121,7 @@ export const Sales = () => {
               <div key={item.id} className="flex items-center space-x-3">
                 <div className="flex-1 overflow-hidden">
                   <p className="truncate text-sm font-bold">{item.name}</p>
-              <p className="text-xs text-slate-500">${(item.price || 0).toFixed(2)} / unit</p>
+                  <p className="text-xs text-slate-500">${toNumber(item.sellingPrice ?? item.price).toFixed(2)} / unit</p>
                 </div>
                 <div className="flex items-center space-x-2 rounded-lg bg-slate-100 p-1 dark:bg-slate-800">
                   <button onClick={() => updateQty(item.id, -1)} className="p-0.5 hover:text-blue-600"><Minus size={14} /></button>
@@ -169,7 +170,7 @@ export const Sales = () => {
                     saleId: sale.id,
                     productId: item.id,
                     quantity: item.qty,
-                    unitPrice: item.price || 0,
+                    unitPrice: item.sellingPrice ?? item.price ?? 0,
                   });
                 }
                 setCart([]);

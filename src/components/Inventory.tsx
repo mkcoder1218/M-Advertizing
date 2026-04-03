@@ -10,7 +10,7 @@ import {
   Download
 } from 'lucide-react';
 import { Card, Badge, Button, Input } from './UI';
-import { useCreateProduct, useProducts, useUpdateProduct, useUploadProductImage } from '../lib/api/hooks/useProducts';
+import { useCreateProduct, useProducts, useUpdateProduct, useUploadProductImage, useUpdateStock } from '../lib/api/hooks/useProducts';
 import { cn } from '../lib/utils';
 
 export const Inventory = () => {
@@ -21,7 +21,9 @@ export const Inventory = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<'raw' | 'finished' | ''>('');
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState({ sku: '', name: '', type: 'raw', unit: '', description: '' });
+  const [form, setForm] = useState({ sku: '', name: '', type: 'raw', unit: '', description: '', sellingPrice: '' });
+  const [stockQty, setStockQty] = useState(0);
+  const [stockLocation, setStockLocation] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -36,6 +38,7 @@ export const Inventory = () => {
   const createMutation = useCreateProduct();
   const updateMutation = useUpdateProduct();
   const uploadMutation = useUploadProductImage();
+  const stockMutation = useUpdateStock();
   const apiBase = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
 
   const imageUrl = (url?: string, fallback = 'https://via.placeholder.com/32') => {
@@ -53,25 +56,41 @@ export const Inventory = () => {
   const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
 
   const resetForm = () => {
-    setForm({ sku: '', name: '', type: 'raw', unit: '', description: '' });
+    setForm({ sku: '', name: '', type: 'raw', unit: '', description: '', sellingPrice: '' });
     setImageFile(null);
     setImagePreview(null);
     setEditingId(null);
+    setStockQty(0);
+    setStockLocation('');
   };
 
   const handleSubmit = async () => {
     if (!form.name || !form.unit) return;
     if (editingId) {
-      await updateMutation.mutateAsync({ id: editingId, payload: { ...form, sku: undefined } });
+      await updateMutation.mutateAsync({
+        id: editingId,
+        payload: {
+          ...form,
+          sku: undefined,
+          sellingPrice: form.sellingPrice ? Number(form.sellingPrice) : undefined,
+        },
+      });
       if (imageFile) await uploadMutation.mutateAsync({ id: editingId, file: imageFile });
+      if (stockQty > 0) {
+        await stockMutation.mutateAsync({ id: editingId, quantity: stockQty, location: stockLocation || undefined });
+      }
     } else {
       const created = await createMutation.mutateAsync({
         name: form.name,
         type: form.type as 'raw' | 'finished',
         unit: form.unit,
         description: form.description || undefined,
+        sellingPrice: form.sellingPrice ? Number(form.sellingPrice) : undefined,
       });
       if (imageFile) await uploadMutation.mutateAsync({ id: created.id, file: imageFile });
+      if (stockQty > 0) {
+        await stockMutation.mutateAsync({ id: created.id, quantity: stockQty, location: stockLocation || undefined });
+      }
     }
     resetForm();
     setDrawerOpen(false);
@@ -90,7 +109,10 @@ export const Inventory = () => {
       type: item.type,
       unit: item.unit,
       description: item.description || '',
+      sellingPrice: item.sellingPrice ? String(item.sellingPrice) : '',
     });
+    setStockQty(Number(item.stock || 0));
+    setStockLocation('');
     setImagePreview(item.Upload?.url || null);
     setDrawerOpen(true);
   };
@@ -348,6 +370,41 @@ export const Inventory = () => {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Unit</label>
                 <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Selling Price</label>
+                <Input
+                  type="number"
+                  value={form.sellingPrice}
+                  onChange={(e) => setForm({ ...form, sellingPrice: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Stock Quantity</label>
+                <div className="space-y-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={1000}
+                    step={1}
+                    value={stockQty}
+                    onChange={(e) => setStockQty(Number(e.target.value))}
+                    className="w-full accent-red-600"
+                  />
+                  <Input
+                    type="number"
+                    value={stockQty}
+                    onChange={(e) => setStockQty(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Stock Location (optional)</label>
+                <Input
+                  value={stockLocation}
+                  onChange={(e) => setStockLocation(e.target.value)}
+                  placeholder="e.g. Main Store"
+                />
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium">Type</label>

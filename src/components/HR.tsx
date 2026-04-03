@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   Users, 
-  UserPlus, 
   Clock, 
   Calendar, 
   MoreVertical,
@@ -9,39 +8,17 @@ import {
   Phone
 } from 'lucide-react';
 import { Card, Badge, Button, Input } from './UI';
-import { useCreateEmployee, useEmployees } from '../lib/api/hooks/useHr';
-import { cn } from '../lib/utils';
+import { useUsers } from '../lib/api/hooks/useUserProfile';
+// no auth context needed
 
 export const HR = () => {
   const [page, setPage] = useState(1);
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
-  const { data } = useEmployees(page, limit, search || undefined);
+  const { data } = useUsers({ page, limit, search });
   const employees = data?.items || [];
-  const createMutation = useCreateEmployee();
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [form, setForm] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    position: '',
-    hireDate: '',
-  });
+  // employee creation removed from this page
 
-  const handleCreate = async () => {
-    if (!form.firstName || !form.lastName) return;
-    await createMutation.mutateAsync({
-      firstName: form.firstName,
-      lastName: form.lastName,
-      email: form.email || undefined,
-      phone: form.phone || undefined,
-      position: form.position || undefined,
-      hireDate: form.hireDate || undefined,
-    });
-    setDrawerOpen(false);
-    setForm({ firstName: '', lastName: '', email: '', phone: '', position: '', hireDate: '' });
-  };
 
   return (
     <div className="space-y-8">
@@ -50,9 +27,7 @@ export const HR = () => {
           <h1 className="text-3xl font-bold tracking-tight">Human Resources</h1>
           <p className="text-slate-500">Manage employee records, attendance, and performance.</p>
         </div>
-        <Button size="sm" onClick={() => setDrawerOpen(true)}>
-          <UserPlus size={16} className="mr-2" /> Add Employee
-        </Button>
+        <div />
       </div>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
@@ -111,12 +86,12 @@ export const HR = () => {
                     <div className="flex items-center space-x-3">
                       <img src={`https://picsum.photos/seed/${emp.firstName}${emp.lastName}/40/40`} className="h-10 w-10 rounded-full" alt="" />
                       <div>
-                        <div className="font-medium">{emp.firstName} {emp.lastName}</div>
+                        <div className="font-medium">{emp.fullName || `${emp.firstName || ''} ${emp.lastName || ''}`.trim()}</div>
                         <div className="text-xs text-slate-500">{emp.id}</div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{emp.position || '—'}</td>
+                  <td className="px-6 py-4 text-slate-600 dark:text-slate-400">{emp.Roles?.[0]?.name || emp.position || '—'}</td>
                   <td className="px-6 py-4 text-slate-600 dark:text-slate-400">—</td>
                   <td className="px-6 py-4">
                     <Badge variant={emp.isActive ? 'success' : 'warning'}>
@@ -152,61 +127,6 @@ export const HR = () => {
         <div className="space-x-2">
           <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))}>Previous</Button>
           <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(data ? Math.ceil(data.total / data.limit) : 1, p + 1))}>Next</Button>
-        </div>
-      </div>
-
-      {/* Drawer */}
-      <div className={cn('fixed inset-0 z-50', drawerOpen ? 'pointer-events-auto' : 'pointer-events-none')}>
-        <div
-          className={cn('absolute inset-0 bg-black/40 transition-opacity', drawerOpen ? 'opacity-100' : 'opacity-0')}
-          onClick={() => setDrawerOpen(false)}
-        />
-        <div
-          className={cn(
-            'absolute right-0 top-0 h-full w-full max-w-md bg-white shadow-2xl dark:bg-slate-900 transition-transform',
-            drawerOpen ? 'translate-x-0' : 'translate-x-full'
-          )}
-        >
-          <div className="flex h-full flex-col">
-            <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold">Add Employee</h3>
-              <p className="text-sm text-slate-500">Create a new employee record.</p>
-            </div>
-            <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">First Name</label>
-                  <Input value={form.firstName} onChange={(e) => setForm({ ...form, firstName: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Last Name</label>
-                  <Input value={form.lastName} onChange={(e) => setForm({ ...form, lastName: e.target.value })} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Email</label>
-                <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Phone</label>
-                <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Position</label>
-                <Input value={form.position} onChange={(e) => setForm({ ...form, position: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Hire Date</label>
-                <Input type="date" value={form.hireDate} onChange={(e) => setForm({ ...form, hireDate: e.target.value })} />
-              </div>
-            </div>
-            <div className="border-t border-slate-100 px-6 py-4 dark:border-slate-800">
-              <div className="flex items-center justify-end space-x-3">
-                <Button variant="outline" onClick={() => setDrawerOpen(false)}>Cancel</Button>
-                <Button onClick={handleCreate} isLoading={createMutation.isPending}>Create</Button>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
