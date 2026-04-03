@@ -36,7 +36,7 @@ const iconMap: Record<string, any> = {
 };
 
 export const Sidebar = ({ currentPath, isMobile }: { currentPath: string; isMobile?: boolean }) => {
-  const { role, isSidebarCollapsed, setSidebarCollapsed, user } = useApp();
+  const { role, isSidebarCollapsed, setSidebarCollapsed, user, logout } = useApp();
 
   const filteredNav = NAV_ITEMS.filter(item => item.roles.includes(role));
 
@@ -60,7 +60,7 @@ export const Sidebar = ({ currentPath, isMobile }: { currentPath: string; isMobi
             className="flex items-center gap-2 text-xl font-bold tracking-tight text-red-600"
           >
             <img src="/Artboard 1.png" alt="M-adverizin" className="h-7 w-7 object-contain" />
-            M-adverizin
+            M-adverizing
           </motion.div>
         )}
         <button 
@@ -111,7 +111,7 @@ export const Sidebar = ({ currentPath, isMobile }: { currentPath: string; isMobi
             </div>
           )}
           {!isSidebarCollapsed && (
-            <button className="text-slate-400 hover:text-red-500">
+            <button onClick={logout} className="text-slate-400 hover:text-red-500">
               <LogOut size={18} />
             </button>
           )}

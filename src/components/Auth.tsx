@@ -65,7 +65,7 @@ export const Auth = () => {
             transition={{ delay: 0.1 }}
             className="text-3xl font-black tracking-tight text-slate-900 dark:text-white"
           >
-            M-adverizin
+            M-adverizing
           </motion.h1>
           <motion.p 
             initial={{ y: 20, opacity: 0 }}
