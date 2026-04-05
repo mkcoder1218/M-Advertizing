@@ -41,6 +41,10 @@ export const productsResource = {
     const { data } = await api.put<Product>(`/api/v1/inventory/products/${id}`, payload);
     return data;
   },
+  remove: async (id: string) => {
+    const { data } = await api.delete(`/api/v1/inventory/products/${id}`);
+    return data;
+  },
   uploadImage: async (id: string, file: File) => {
     const form = new FormData();
     form.append('file', file);
