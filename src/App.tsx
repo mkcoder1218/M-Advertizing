@@ -9,13 +9,13 @@ import { Orders } from './components/Orders';
 import { Procurement } from './components/Procurement';
 import { Tenders } from './components/Tenders';
 import { HR } from './components/HR';
-import { ProductionTeamDashboard } from './components/ProductionTeamDashboard';
-import { Analytics } from './components/Analytics';
 import { Settings } from './components/Settings';
 import { Requests } from './components/Requests';
 import { Auth } from './components/Auth';
 import { NAV_ITEMS } from './constants';
 import { Attendance } from './components/Attendance';
+import { DesignerOrders } from './components/DesignerOrders';
+import { SuperAdmin } from './components/SuperAdmin';
 
 function AppContent() {
   const { role, isAuthenticated } = useApp();
@@ -65,17 +65,20 @@ function AppContent() {
     }
 
     switch (currentPath) {
-      case '/': return role === 'PRODUCTION_TEAM' ? <ProductionTeamDashboard /> : <Dashboard />;
+      case '/': 
+        if (role === 'PRODUCTION_TEAM') return <Production />;
+        return <Dashboard />;
       case '/inventory': return <Inventory />;
       case '/production': return <Production />;
       case '/sales': return <Sales />;
       case '/orders': return <Orders />;
+      case '/designer-orders': return <DesignerOrders />;
+      case '/admin': return <SuperAdmin />;
       case '/procurement': return <Procurement />;
       case '/requests': return <Requests />;
       case '/attendance': return <Attendance />;
       case '/tenders': return <Tenders />;
       case '/hr': return <HR />;
-      case '/analytics': return <Analytics />;
       case '/settings': return <Settings />;
       default: return <Dashboard />;
     }

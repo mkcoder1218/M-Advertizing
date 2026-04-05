@@ -37,7 +37,7 @@ export const Layout = ({ children, currentPath }: { children: React.ReactNode; c
       <div className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
         <AnimatePresence mode="wait">
           <motion.div
-            key={window.location.pathname}
+            key={currentPath}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}

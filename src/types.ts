@@ -1,4 +1,5 @@
 export type UserRole = 
+  | 'SUPER_ADMIN'
   | 'OWNER' 
   | 'MANAGER' 
   | 'HR' 
@@ -7,6 +8,7 @@ export type UserRole =
   | 'SALES' 
   | 'TENDER' 
   | 'ORDER_RECEPTION' 
+  | 'DESIGNER'
   | 'PRODUCTION_TEAM';
 
 export interface User {
@@ -67,18 +69,35 @@ export interface Order {
   id: string;
   orderNumber?: string;
   customer: string;
+  customerContact?: string;
   date: string;
   total: number;
   status: 'PENDING' | 'PROCESSING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
   approvalStatus:
     | 'AWAITING_RECEPTION'
+    | 'SENT_TO_DESIGNER'
     | 'SENT_TO_WORKER'
     | 'WORKER_ACCEPTED'
     | 'WORK_IN_PROGRESS'
     | 'WORK_COMPLETED'
     | 'WORKER_REJECTED';
+  assignedWorkerId?: string;
+  assignedDesignerId?: string;
+  acceptedById?: string;
+  needsDesign?: boolean;
+  fileAvailable?: boolean;
+  orderFileUrl?: string;
+  designFileUrl?: string;
   assignedWorker?: string;
   items: number;
+  orderItems?: {
+    productId: string;
+    productName?: string;
+    quantity: number;
+    unitPrice: number;
+    workTypeId?: string;
+    workTypeName?: string;
+  }[];
   messages: Message[];
 }
 

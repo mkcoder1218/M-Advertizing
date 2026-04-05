@@ -38,7 +38,7 @@ const iconMap: Record<string, any> = {
 export const Sidebar = ({ currentPath, isMobile }: { currentPath: string; isMobile?: boolean }) => {
   const { role, isSidebarCollapsed, setSidebarCollapsed, user, logout } = useApp();
 
-  const filteredNav = NAV_ITEMS.filter(item => item.roles.includes(role));
+  const filteredNav = NAV_ITEMS.filter(item => item.roles.includes(role) && item.title !== 'Analytics');
 
   return (
     <motion.aside

@@ -15,6 +15,13 @@ import { useApp } from '../context/AppContext';
 import { OrderDetailsModal } from './OrderDetailsModal';
 import { Order } from '../types';
 
+const toFileUrl = (url?: string) => {
+  if (!url) return '';
+  if (url.startsWith('http')) return url;
+  const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+  return `${base}${url}`;
+};
+
 export const Production = () => {
   const { user, role } = useApp();
   const { data } = useOrders(1, 50);
@@ -34,6 +41,17 @@ export const Production = () => {
       assignedWorker: o.assignedWorker || undefined,
       items: Number(o.itemsCount || 0),
       itemsWorkTypes: (o.OrderItems || []).map((i: any) => i.workTypeId).filter(Boolean),
+      orderFileUrl: o.orderFileUrl || undefined,
+      designFileUrl: o.designFileUrl || undefined,
+      customerContact: o.customerContact || undefined,
+      orderItems: (o.OrderItems || []).map((i: any) => ({
+        productId: i.productId,
+        productName: i.Product?.name,
+        quantity: Number(i.quantity || 0),
+        unitPrice: Number(i.unitPrice || 0),
+        workTypeId: i.workTypeId || undefined,
+        workTypeName: i.WorkType?.name,
+      })),
       messages: (o.OrderMessages || []).map((m: any) => ({
         id: m.id,
         sender: m.sender,
@@ -99,7 +117,12 @@ export const Production = () => {
           color="bg-amber-500"
           orders={pending}
           onSelect={setSelectedOrder}
-          onAccept={(o: Order) => updateOrder.mutate({ id: o.id, payload: { approvalStatus: 'WORKER_ACCEPTED', assignedWorker: user?.name } as any })}
+          onAccept={(o: Order) =>
+            updateOrder.mutate({
+              id: o.id,
+              payload: { approvalStatus: 'WORKER_ACCEPTED', assignedWorker: user?.name, assignedWorkerId: user?.id } as any,
+            })
+          }
           showAccept={role === 'PRODUCTION_TEAM'}
         />
         <StatusColumn
@@ -192,6 +215,22 @@ const OrderCard = ({ order, onAccept, showAccept, ...props }: { order: Order; on
           <span>Items: {order.items}</span>
         </div>
         <Badge variant="info">{order.approvalStatus.replace(/_/g, ' ')}</Badge>
+      </div>
+      <div className="mt-3 space-y-1 text-xs">
+        {order.orderFileUrl ? (
+          <a href={toFileUrl(order.orderFileUrl)} download className="text-blue-600 hover:underline">
+            Download client file
+          </a>
+        ) : (
+          <div className="text-slate-400">No client file</div>
+        )}
+        {order.designFileUrl ? (
+          <a href={toFileUrl(order.designFileUrl)} download className="text-blue-600 hover:underline">
+            Download design file
+          </a>
+        ) : (
+          <div className="text-slate-400">No design file</div>
+        )}
       </div>
       {showAccept && order.approvalStatus === 'SENT_TO_WORKER' && (
         <div className="mt-3">

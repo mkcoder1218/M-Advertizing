@@ -5,8 +5,20 @@ export const usersResource = {
     const { data } = await api.get('/api/v1/users', { params });
     return data;
   },
+  create: async (payload: { fullName: string; email: string; password: string; phone?: string }) => {
+    const { data } = await api.post('/api/v1/users', payload);
+    return data;
+  },
   update: async (id: string, payload: { fullName?: string; email?: string; phone?: string }) => {
     const { data } = await api.put(`/api/v1/users/${id}`, payload);
+    return data;
+  },
+  updateWithRoles: async (id: string, payload: { fullName?: string; email?: string; phone?: string; roleIds?: string[]; isActive?: boolean }) => {
+    const { data } = await api.put(`/api/v1/users/${id}`, payload);
+    return data;
+  },
+  remove: async (id: string) => {
+    const { data } = await api.delete(`/api/v1/users/${id}`);
     return data;
   },
   uploadProfileImage: async (id: string, file: File) => {

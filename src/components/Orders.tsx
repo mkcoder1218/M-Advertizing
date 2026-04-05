@@ -16,6 +16,7 @@ import { useCreateOrder, useOrders, useUpdateOrder } from '../lib/api/hooks/useO
 import { useProducts } from '../lib/api/hooks/useProducts';
 import { useWorkTypes } from '../lib/api/hooks/useWorkTypes';
 import { useApp } from '../context/AppContext';
+import { ordersResource } from '../lib/api/resources/orders';
 
 export const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -23,6 +24,7 @@ export const Orders = () => {
   const [limit] = useState(10);
   const [search, setSearch] = useState('');
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [form, setForm] = useState({
     orderNumber: '',
     customerName: '',
@@ -32,9 +34,14 @@ export const Orders = () => {
     orderDate: new Date().toISOString().slice(0, 10),
     total: '',
     itemsCount: '',
+    needsDesign: false,
+    fileAvailable: false,
     items: [{ productId: '', quantity: 1, unitPrice: 0, workTypeId: '' }],
   });
+  const [orderFile, setOrderFile] = useState<File | null>(null);
   const { user } = useApp();
+  const itemsCount = form.items.reduce((sum, it) => sum + Number(it.quantity || 0), 0);
+  const totalAmount = form.items.reduce((sum, it) => sum + (Number(it.quantity || 0) * Number(it.unitPrice || 0)), 0);
 
   const { data } = useOrders(page, limit, search || undefined);
   const createMutation = useCreateOrder();
@@ -48,12 +55,28 @@ export const Orders = () => {
       id: o.id,
       orderNumber: o.orderNumber,
       customer: o.customerName,
+      customerContact: o.customerContact || undefined,
       date: o.orderDate,
       total: Number(o.total || 0),
       status: o.status,
       approvalStatus: o.approvalStatus,
+      needsDesign: Boolean(o.needsDesign),
+      fileAvailable: Boolean(o.fileAvailable),
+      orderFileUrl: o.orderFileUrl || undefined,
+      designFileUrl: o.designFileUrl || undefined,
       assignedWorker: o.assignedWorker || undefined,
+      assignedWorkerId: o.assignedWorkerId || undefined,
+      assignedDesignerId: o.assignedDesignerId || undefined,
+      acceptedById: o.acceptedById || undefined,
       items: Number(o.itemsCount || 0),
+      orderItems: (o.OrderItems || []).map((i: any) => ({
+        productId: i.productId,
+        productName: i.Product?.name,
+        quantity: Number(i.quantity || 0),
+        unitPrice: Number(i.unitPrice || 0),
+        workTypeId: i.workTypeId || undefined,
+        workTypeName: i.WorkType?.name,
+      })),
       messages: (o.OrderMessages || []).map((m: any) => ({
         id: m.id,
         sender: m.sender,
@@ -73,6 +96,49 @@ export const Orders = () => {
   const handleUpdateOrder = (updatedOrder: Order) => {
     setSelectedOrder(updatedOrder);
   };
+  const openCreateDrawer = () => {
+    setEditingOrder(null);
+    setOrderFile(null);
+    setForm({
+      orderNumber: '',
+      customerName: '',
+      customerContact: '',
+      status: 'PENDING',
+      approvalStatus: 'AWAITING_RECEPTION',
+      orderDate: new Date().toISOString().slice(0, 10),
+      total: '',
+      itemsCount: '',
+      needsDesign: false,
+      fileAvailable: false,
+      items: [{ productId: '', quantity: 1, unitPrice: 0, workTypeId: '' }],
+    });
+    setDrawerOpen(true);
+  };
+  const openEditDrawer = (order: Order) => {
+    setEditingOrder(order);
+    setOrderFile(null);
+    setForm({
+      orderNumber: order.orderNumber || '',
+      customerName: order.customer,
+      customerContact: order.customerContact || '',
+      status: order.status,
+      approvalStatus: order.approvalStatus,
+      orderDate: order.date,
+      total: String(order.total || 0),
+      itemsCount: String(order.items || 0),
+      needsDesign: Boolean(order.needsDesign),
+      fileAvailable: Boolean(order.fileAvailable),
+      items: order.orderItems?.length
+        ? order.orderItems.map((i) => ({
+            productId: i.productId,
+            quantity: i.quantity,
+            unitPrice: i.unitPrice,
+            workTypeId: i.workTypeId || '',
+          }))
+        : [{ productId: '', quantity: 1, unitPrice: 0, workTypeId: '' }],
+    });
+    setDrawerOpen(true);
+  };
 
   return (
     <div className="space-y-8">
@@ -90,7 +156,7 @@ export const Orders = () => {
         </div>
         <div className="flex items-center space-x-3">
           <Button variant="outline" size="sm">Download Report</Button>
-          <Button size="sm" onClick={() => setDrawerOpen(true)}>Create Manual Order</Button>
+          <Button size="sm" onClick={openCreateDrawer}>Create Manual Order</Button>
         </div>
       </div>
 
@@ -172,7 +238,8 @@ export const Orders = () => {
                       order.approvalStatus === 'WORK_IN_PROGRESS' ? 'info' :
                       order.approvalStatus === 'WORKER_ACCEPTED' ? 'success' : 
                       order.approvalStatus === 'WORKER_REJECTED' ? 'danger' : 
-                      order.approvalStatus === 'SENT_TO_WORKER' ? 'warning' : 'default'
+                      order.approvalStatus === 'SENT_TO_WORKER' ? 'warning' :
+                      order.approvalStatus === 'SENT_TO_DESIGNER' ? 'warning' : 'default'
                     }>
                       {order.approvalStatus.replace(/_/g, ' ')}
                     </Badge>
@@ -183,6 +250,7 @@ export const Orders = () => {
                         onChange={(e) => updateMutation.mutate({ id: order.id, payload: { approvalStatus: e.target.value } as any })}
                       >
                         <option value="AWAITING_RECEPTION">AWAITING RECEPTION</option>
+                        <option value="SENT_TO_DESIGNER">SEND TO DESIGNER</option>
                         <option value="SENT_TO_WORKER">SEND TO PRODUCTION</option>
                         <option value="WORKER_ACCEPTED">WORKER ACCEPTED</option>
                         <option value="WORK_IN_PROGRESS">WORK IN PROGRESS</option>
@@ -217,7 +285,13 @@ export const Orders = () => {
                           </span>
                         )}
                       </button>
-                      <button className="p-1.5 text-slate-400 hover:text-slate-600"><MoreHorizontal size={18} /></button>
+                      <button
+                        onClick={() => openEditDrawer(order)}
+                        className="p-1.5 text-slate-400 hover:text-slate-600"
+                        title="Edit order"
+                      >
+                        <MoreHorizontal size={18} />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -256,8 +330,10 @@ export const Orders = () => {
         >
           <div className="flex h-full flex-col">
             <div className="border-b border-slate-100 px-6 py-4 dark:border-slate-800">
-              <h3 className="text-lg font-bold">Create Manual Order</h3>
-              <p className="text-sm text-slate-500">Capture order details and assign status.</p>
+              <h3 className="text-lg font-bold">{editingOrder ? 'Edit Order' : 'Create Manual Order'}</h3>
+              <p className="text-sm text-slate-500">
+                {editingOrder ? 'Update order details and workflow.' : 'Capture order details and assign status.'}
+              </p>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
               <div className="space-y-2">
@@ -288,6 +364,133 @@ export const Orders = () => {
                   </select>
                 </div>
                 <div className="space-y-2">
+                  <label className="text-sm font-medium">Design & Files</label>
+                  <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={form.needsDesign}
+                      onChange={(e) => {
+                        const needs = e.target.checked;
+                        setForm({
+                          ...form,
+                          needsDesign: needs,
+                          approvalStatus: needs ? 'SENT_TO_DESIGNER' : 'AWAITING_RECEPTION',
+                        });
+                      }}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-700"
+                    />
+                    Needs Design
+                  </label>
+                  <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                    <input
+                      type="checkbox"
+                      checked={form.fileAvailable}
+                      onChange={(e) => setForm({ ...form, fileAvailable: e.target.checked })}
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-700"
+                    />
+                    File Available
+                  </label>
+                  {form.fileAvailable && (
+                    <input
+                      type="file"
+                      onChange={(e) => setOrderFile(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-slate-800 dark:file:text-slate-200"
+                    />
+                  )}
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Order Date</label>
+                  <Input type="date" value={form.orderDate} onChange={(e) => setForm({ ...form, orderDate: e.target.value })} />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium">Order Items</label>
+                <div className="space-y-3">
+                  {form.items.map((it, idx) => (
+                    <div key={idx} className="grid grid-cols-1 gap-2 md:grid-cols-4">
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500">Product</label>
+                        <select
+                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+                          value={it.productId}
+                          onChange={(e) => {
+                            const items = [...form.items];
+                            items[idx].productId = e.target.value;
+                            setForm({ ...form, items });
+                          }}
+                        >
+                          <option value="">Select product</option>
+                          {productsQuery.data?.items.map((p: any) => (
+                            <option key={p.id} value={p.id}>{p.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500">Quantity</label>
+                        <Input
+                          type="number"
+                          value={it.quantity}
+                          onChange={(e) => {
+                            const items = [...form.items];
+                            items[idx].quantity = Number(e.target.value);
+                            setForm({ ...form, items });
+                          }}
+                          placeholder="Qty"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500">Unit Price</label>
+                        <Input
+                          type="number"
+                          value={it.unitPrice}
+                          onChange={(e) => {
+                            const items = [...form.items];
+                            items[idx].unitPrice = Number(e.target.value);
+                            setForm({ ...form, items });
+                          }}
+                          placeholder="Unit price"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-xs font-medium text-slate-500">Work Type</label>
+                        <select
+                          className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
+                          value={it.workTypeId}
+                          onChange={(e) => {
+                            const items = [...form.items];
+                            items[idx].workTypeId = e.target.value;
+                            setForm({ ...form, items });
+                          }}
+                        >
+                          <option value="">Work type</option>
+                          {workTypesQuery.data?.map((w) => (
+                            <option key={w.id} value={w.id}>{w.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setForm({ ...form, items: [...form.items, { productId: '', quantity: 1, unitPrice: 0, workTypeId: '' }] })}
+                  >
+                    Add Item
+                  </Button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Total</label>
+                  <Input value={totalAmount.toFixed(2)} disabled />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Items Count</label>
+                  <Input value={itemsCount} disabled />
+                </div>
+              </div>
+              {!form.needsDesign && (
+                <div className="space-y-2">
                   <label className="text-sm font-medium">Workflow</label>
                   <select
                     className="h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
@@ -302,106 +505,80 @@ export const Orders = () => {
                     <option value="WORKER_REJECTED">WORKER REJECTED</option>
                   </select>
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Order Date</label>
-                  <Input type="date" value={form.orderDate} onChange={(e) => setForm({ ...form, orderDate: e.target.value })} />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Total</label>
-                  <Input value={form.total} onChange={(e) => setForm({ ...form, total: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium">Items Count</label>
-                  <Input value={form.itemsCount} onChange={(e) => setForm({ ...form, itemsCount: e.target.value })} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Order Items</label>
-                <div className="space-y-3">
-                  {form.items.map((it, idx) => (
-                    <div key={idx} className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                      <select
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
-                        value={it.productId}
-                        onChange={(e) => {
-                          const items = [...form.items];
-                          items[idx].productId = e.target.value;
-                          setForm({ ...form, items });
-                        }}
-                      >
-                        <option value="">Select product</option>
-                        {productsQuery.data?.items.map((p: any) => (
-                          <option key={p.id} value={p.id}>{p.name}</option>
-                        ))}
-                      </select>
-                      <Input
-                        type="number"
-                        value={it.quantity}
-                        onChange={(e) => {
-                          const items = [...form.items];
-                          items[idx].quantity = Number(e.target.value);
-                          setForm({ ...form, items });
-                        }}
-                        placeholder="Qty"
-                      />
-                      <Input
-                        type="number"
-                        value={it.unitPrice}
-                        onChange={(e) => {
-                          const items = [...form.items];
-                          items[idx].unitPrice = Number(e.target.value);
-                          setForm({ ...form, items });
-                        }}
-                        placeholder="Unit price"
-                      />
-                      <select
-                        className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
-                        value={it.workTypeId}
-                        onChange={(e) => {
-                          const items = [...form.items];
-                          items[idx].workTypeId = e.target.value;
-                          setForm({ ...form, items });
-                        }}
-                      >
-                        <option value="">Work type</option>
-                        {workTypesQuery.data?.map((w) => (
-                          <option key={w.id} value={w.id}>{w.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setForm({ ...form, items: [...form.items, { productId: '', quantity: 1, unitPrice: 0, workTypeId: '' }] })}
-                  >
-                    Add Item
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
             <div className="border-t border-slate-100 px-6 py-4 dark:border-slate-800">
               <div className="flex items-center justify-end space-x-3">
                 <Button variant="outline" onClick={() => setDrawerOpen(false)}>Cancel</Button>
                 <Button
                   onClick={async () => {
-                    await createMutation.mutateAsync({
+                    if (editingOrder) {
+                      const missingWorkType = form.items
+                        .filter((i) => i.productId)
+                        .some((i) => !i.workTypeId);
+                      if (missingWorkType) {
+                        window.alert('Please select a Work Type for each order item.');
+                        return;
+                      }
+                      await updateMutation.mutateAsync({
+                        id: editingOrder.id,
+                        payload: {
+                          status: form.status as any,
+                          approvalStatus: form.approvalStatus as any,
+                          needsDesign: form.needsDesign,
+                          fileAvailable: form.fileAvailable,
+                        } as any,
+                      });
+                      await ordersResource.updateItems(
+                        editingOrder.id,
+                        form.items
+                          .filter((i) => i.productId)
+                          .map((i) => ({
+                            productId: i.productId,
+                            quantity: Number(i.quantity || 0),
+                            unitPrice: Number(i.unitPrice || 0),
+                            workTypeId: i.workTypeId || undefined,
+                          }))
+                      );
+                      if (orderFile) {
+                        await ordersResource.uploadOrderFile(editingOrder.id, orderFile);
+                      }
+                      setDrawerOpen(false);
+                      return;
+                    }
+                    const missingWorkType = form.items
+                      .filter((i) => i.productId)
+                      .some((i) => !i.workTypeId);
+                    if (missingWorkType) {
+                      window.alert('Please select a Work Type for each order item.');
+                      return;
+                    }
+                    const created = await createMutation.mutateAsync({
                       customerName: form.customerName,
                       customerContact: form.customerContact || undefined,
                       status: form.status as any,
                       orderDate: form.orderDate,
                       approvalStatus: form.approvalStatus,
-                      total: Number(form.total || 0),
-                      itemsCount: Number(form.itemsCount || 0),
-                      items: form.items.filter((i) => i.productId),
+                      acceptedById: user?.id,
+                      needsDesign: form.needsDesign,
+                      fileAvailable: form.fileAvailable,
+                      total: totalAmount,
+                      itemsCount: itemsCount,
+                      items: form.items
+                        .filter((i) => i.productId)
+                        .map((i) => ({
+                          ...i,
+                          workTypeId: i.workTypeId ? i.workTypeId : undefined,
+                        })),
                     } as any);
+                    if (orderFile) {
+                      await ordersResource.uploadOrderFile(created.id, orderFile);
+                    }
                     setDrawerOpen(false);
                   }}
-                  isLoading={createMutation.isPending}
+                  isLoading={createMutation.isPending || updateMutation.isPending}
                 >
-                  Create
+                  {editingOrder ? 'Update' : 'Create'}
                 </Button>
               </div>
             </div>

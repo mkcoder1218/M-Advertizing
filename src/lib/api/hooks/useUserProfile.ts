@@ -9,6 +9,26 @@ export const useUpdateUser = () => {
   });
 };
 
+export const useUpdateUserWithRoles = () => {
+  return useMutation({
+    mutationFn: ({ id, payload }: { id: string; payload: { fullName?: string; email?: string; phone?: string; roleIds?: string[]; isActive?: boolean } }) =>
+      usersResource.updateWithRoles(id, payload),
+  });
+};
+
+export const useCreateUser = () => {
+  return useMutation({
+    mutationFn: (payload: { fullName: string; email: string; password: string; phone?: string }) =>
+      usersResource.create(payload),
+  });
+};
+
+export const useDeleteUser = () => {
+  return useMutation({
+    mutationFn: (id: string) => usersResource.remove(id),
+  });
+};
+
 export const useUsers = (params?: { page?: number; limit?: number; search?: string }) =>
   useQuery({
     queryKey: ['users', params],

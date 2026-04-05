@@ -1,26 +1,26 @@
 import api from '../client';
 
-export interface WorkType {
+export interface Role {
   id: string;
   name: string;
   description?: string;
 }
 
-export const workTypesResource = {
+export const rolesResource = {
   list: async () => {
-    const { data } = await api.get<WorkType[]>('/api/v1/teams/work-types');
+    const { data } = await api.get<Role[]>('/api/v1/roles');
     return data;
   },
   create: async (payload: { name: string; description?: string }) => {
-    const { data } = await api.post<WorkType>('/api/v1/teams/work-types', payload);
+    const { data } = await api.post<Role>('/api/v1/roles', payload);
     return data;
   },
   update: async (id: string, payload: { name?: string; description?: string }) => {
-    const { data } = await api.put<WorkType>(`/api/v1/teams/work-types/${id}`, payload);
+    const { data } = await api.put<Role>(`/api/v1/roles/${id}`, payload);
     return data;
   },
   remove: async (id: string) => {
-    const { data } = await api.delete(`/api/v1/teams/work-types/${id}`);
+    const { data } = await api.delete(`/api/v1/roles/${id}`);
     return data;
   },
 };

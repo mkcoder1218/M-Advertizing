@@ -16,6 +16,7 @@ import { useAddOrderMessage, useUpdateOrder } from '../lib/api/hooks/useOrders';
 import { useApp } from '../context/AppContext';
 import { cn } from '../lib/utils';
 import { socket } from '../lib/realtime/socket';
+import { ordersResource } from '../lib/api/resources/orders';
 
 interface OrderDetailsModalProps {
   order: Order;
@@ -29,10 +30,25 @@ export const OrderDetailsModal = ({ order, onClose, onUpdate }: OrderDetailsModa
   const updateMutation = useUpdateOrder();
   const messageMutation = useAddOrderMessage();
   const orderRef = useRef(order);
+  const [needsDesign, setNeedsDesign] = useState(Boolean(order.needsDesign));
+  const [fileAvailable, setFileAvailable] = useState(Boolean(order.fileAvailable));
+  const [orderFile, setOrderFile] = useState<File | null>(null);
+  const [designFile, setDesignFile] = useState<File | null>(null);
 
   useEffect(() => {
     orderRef.current = order;
+    setNeedsDesign(Boolean(order.needsDesign));
+    setFileAvailable(Boolean(order.fileAvailable));
+    setOrderFile(null);
+    setDesignFile(null);
   }, [order]);
+
+  const toFileUrl = (url?: string) => {
+    if (!url) return '';
+    if (url.startsWith('http')) return url;
+    const base = import.meta.env.VITE_API_BASE_URL || 'http://localhost:4000';
+    return `${base}${url}`;
+  };
 
   useEffect(() => {
     socket.connect();
@@ -88,11 +104,17 @@ export const OrderDetailsModal = ({ order, onClose, onUpdate }: OrderDetailsModa
     if (status === 'WORK_COMPLETED') {
       socket.emit('orderCompleted', { orderId: order.id });
     }
-    updateMutation.mutate({ id: order.id, payload: { approvalStatus: status } as any });
+    const extra: any = {};
+    if (status === 'WORKER_ACCEPTED') {
+      extra.assignedWorker = currentUser?.name;
+      extra.assignedWorkerId = currentUser?.id;
+    }
+    updateMutation.mutate({ id: order.id, payload: { approvalStatus: status, ...extra } as any });
   };
 
 
   const isWorker = role === 'PRODUCTION_TEAM';
+  const isDesigner = role === 'DESIGNER';
   const isReceptionist = role === 'ORDER_RECEPTION' || role === 'OWNER' || role === 'MANAGER';
 
   return (
@@ -158,6 +180,13 @@ export const OrderDetailsModal = ({ order, onClose, onUpdate }: OrderDetailsModa
                     label="Order Received & Accepted" 
                     icon={<CheckCircle2 size={16} />} 
                   />
+                  {order.needsDesign && (
+                    <StatusStep 
+                      active={order.approvalStatus !== 'AWAITING_RECEPTION'} 
+                      label={order.approvalStatus === 'SENT_TO_DESIGNER' ? 'Design In Progress' : 'Design Completed'} 
+                      icon={<User size={16} />} 
+                    />
+                  )}
                   <StatusStep 
                     active={order.approvalStatus === 'SENT_TO_WORKER' || order.approvalStatus === 'WORKER_ACCEPTED' || order.approvalStatus === 'WORK_IN_PROGRESS' || order.approvalStatus === 'WORK_COMPLETED'} 
                     label="Sent to Production" 
@@ -187,9 +216,90 @@ export const OrderDetailsModal = ({ order, onClose, onUpdate }: OrderDetailsModa
                 <h3 className="mb-4 text-xs font-bold uppercase tracking-widest text-slate-400">Actions</h3>
                 
                 {isReceptionist && order.approvalStatus === 'AWAITING_RECEPTION' && (
-                  <Button className="w-full" onClick={() => updateApproval('SENT_TO_WORKER')}>
-                    Accept Order & Send to Production
-                  </Button>
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                      <input
+                        type="checkbox"
+                        checked={needsDesign}
+                        onChange={(e) => setNeedsDesign(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-700"
+                      />
+                      Needs Design
+                    </label>
+                    <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                      <input
+                        type="checkbox"
+                        checked={fileAvailable}
+                        onChange={(e) => setFileAvailable(e.target.checked)}
+                        className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 dark:border-slate-700"
+                      />
+                      File Available
+                    </label>
+                    <div className="space-y-2">
+                      <input
+                        type="file"
+                        onChange={(e) => setOrderFile(e.target.files?.[0] || null)}
+                        className="block w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-slate-800 dark:file:text-slate-200"
+                      />
+                      {order.orderFileUrl && (
+                        <a href={order.orderFileUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">
+                          View uploaded file
+                        </a>
+                      )}
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={async () => {
+                        const nextStatus = needsDesign ? 'SENT_TO_DESIGNER' : 'SENT_TO_WORKER';
+                        updateMutation.mutate({
+                          id: order.id,
+                          payload: { approvalStatus: nextStatus, needsDesign, fileAvailable, acceptedById: currentUser?.id } as any,
+                        });
+                        if (orderFile) {
+                          const res = await ordersResource.uploadOrderFile(order.id, orderFile);
+                          if (res?.order) {
+                            onUpdate({ ...order, orderFileUrl: res.order.orderFileUrl || order.orderFileUrl });
+                          }
+                        }
+                        onUpdate({ ...order, approvalStatus: nextStatus as any, needsDesign, fileAvailable });
+                      }}
+                    >
+                      {needsDesign ? 'Accept Order & Send to Designer' : 'Accept Order & Send to Production'}
+                    </Button>
+                  </div>
+                )}
+
+                {isDesigner && order.approvalStatus === 'SENT_TO_DESIGNER' && (
+                  <div className="space-y-3">
+                    <input
+                      type="file"
+                      onChange={(e) => setDesignFile(e.target.files?.[0] || null)}
+                      className="block w-full text-sm text-slate-500 file:mr-4 file:rounded-lg file:border-0 file:bg-slate-100 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-slate-700 hover:file:bg-slate-200 dark:file:bg-slate-800 dark:file:text-slate-200"
+                    />
+                    {order.designFileUrl && (
+                      <a href={order.designFileUrl} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">
+                        View design file
+                      </a>
+                    )}
+                    <Button
+                      className="w-full"
+                      onClick={async () => {
+                        if (designFile) {
+                          const res = await ordersResource.uploadDesignFile(order.id, designFile);
+                          if (res?.order) {
+                            onUpdate({ ...order, designFileUrl: res.order.designFileUrl || order.designFileUrl });
+                          }
+                        }
+                        updateMutation.mutate({
+                          id: order.id,
+                          payload: { approvalStatus: 'SENT_TO_WORKER', assignedDesignerId: currentUser?.id } as any,
+                        });
+                        onUpdate({ ...order, approvalStatus: 'SENT_TO_WORKER' as any, assignedDesignerId: currentUser?.id });
+                      }}
+                    >
+                      Design Completed & Send to Production
+                    </Button>
+                  </div>
                 )}
 
                 {isWorker && order.approvalStatus === 'SENT_TO_WORKER' && (
@@ -233,6 +343,61 @@ export const OrderDetailsModal = ({ order, onClose, onUpdate }: OrderDetailsModa
                 <h3 className="font-bold">Order Discussion</h3>
               </div>
             </div>
+
+            {(role === 'PRODUCTION_TEAM' || role === 'DESIGNER') && (
+              <div className="border-b border-slate-100 p-4 text-xs text-slate-600 dark:border-slate-800 dark:text-slate-400">
+                <p className="mb-2 text-xs font-bold uppercase tracking-widest text-slate-400">Work Summary</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="text-[11px] font-semibold text-slate-500">Customer</div>
+                    <div className="font-medium">{order.customer}</div>
+                    <div className="text-slate-400">{order.customerContact || 'No contact'}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold text-slate-500">Flags</div>
+                    <div>{order.needsDesign ? 'Needs Design' : 'No Design Needed'}</div>
+                    <div>{order.fileAvailable ? 'File Available' : 'No File'}</div>
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold text-slate-500">Files</div>
+                    {order.orderFileUrl ? (
+                      <a href={toFileUrl(order.orderFileUrl)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                        Client File
+                      </a>
+                    ) : (
+                      <div>No client file</div>
+                    )}
+                    {order.designFileUrl ? (
+                      <a href={toFileUrl(order.designFileUrl)} target="_blank" rel="noreferrer" className="text-blue-600 hover:underline">
+                        Design File
+                      </a>
+                    ) : (
+                      <div>No design file</div>
+                    )}
+                  </div>
+                  <div>
+                    <div className="text-[11px] font-semibold text-slate-500">Schedule</div>
+                    <div>Due: Not set</div>
+                    <div>Priority: Normal</div>
+                  </div>
+                </div>
+                <div className="mt-3">
+                  <div className="text-[11px] font-semibold text-slate-500">Items</div>
+                  {order.orderItems && order.orderItems.length > 0 ? (
+                    <ul className="mt-1 space-y-1">
+                      {order.orderItems.map((it, idx) => (
+                        <li key={`${it.productId}-${idx}`} className="flex justify-between">
+                          <span>{it.productName || it.productId}</span>
+                          <span className="text-slate-400">x{it.quantity} {it.workTypeName ? `• ${it.workTypeName}` : ''}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-slate-400">No items listed</div>
+                  )}
+                </div>
+              </div>
+            )}
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {order.messages.length === 0 ? (

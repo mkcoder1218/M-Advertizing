@@ -22,15 +22,18 @@ import {
 } from 'recharts';
 import { Card, Badge } from './UI';
 import { cn } from '../lib/utils';
-import { useAnalytics } from '../lib/api/hooks/useAnalytics';
+import { useAnalytics, useRoleAnalytics } from '../lib/api/hooks/useAnalytics';
 import { useOrders } from '../lib/api/hooks/useOrders';
 import { useProducts } from '../lib/api/hooks/useProducts';
 import { useNotifications } from '../lib/api/hooks/useNotifications';
+import { useApp } from '../context/AppContext';
 
 const dayLabel = (d: Date) => d.toLocaleDateString(undefined, { weekday: 'short' });
 
 export const Dashboard = () => {
   const { data: analytics } = useAnalytics();
+  const { data: roleData } = useRoleAnalytics();
+  const { role } = useApp();
   const overview = analytics?.dashboard;
   const { data: ordersData } = useOrders(1, 100);
   const { data: productsData } = useProducts(1, 50);
@@ -50,6 +53,7 @@ export const Dashboard = () => {
 
   const activeJobs = orders.filter((o: any) => ['WORKER_ACCEPTED', 'WORK_IN_PROGRESS'].includes(o.approvalStatus || ''));
   const alerts = products.slice(0, 3);
+  const isManagerView = role === 'OWNER' || role === 'MANAGER' || role === 'HR';
 
   return (
     <div className="space-y-8">
@@ -59,40 +63,107 @@ export const Dashboard = () => {
         <p className="text-slate-500">Welcome back, Alexander. Here's what's happening today.</p>
       </div>
 
+      {roleData?.summary && (
+        <div>
+          <h2 className="mb-3 text-lg font-semibold">My Work Summary</h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
+            <KPICard label="Tasks Worked" value={roleData.summary.tasksWorked} change={0} trend="neutral" icon={<Factory className="text-blue-600" />} />
+            <KPICard label="Avg Task Hours" value={`${roleData.summary.avgHours}h`} change={0} trend="neutral" icon={<Clock className="text-emerald-600" />} />
+            <KPICard label="Growth" value={`${roleData.summary.growthPercent}%`} change={0} trend="neutral" icon={<TrendingUp className="text-rose-600" />} />
+            <KPICard label="Attendance (7d)" value={roleData.summary.attendanceDays ?? 0} change={0} trend="neutral" icon={<CheckCircle2 className="text-indigo-600" />} />
+          </div>
+        </div>
+      )}
+
+      {isManagerView && roleData?.overall && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-semibold">Workload Overview</h2>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+            <KPICard label="Total Orders" value={roleData.overall.totalOrders} change={0} trend="neutral" icon={<Package className="text-blue-600" />} />
+            <KPICard label="Completed Orders" value={roleData.overall.completedOrders} change={0} trend="neutral" icon={<CheckCircle2 className="text-emerald-600" />} />
+            <KPICard label="Avg Prod Hours" value={`${roleData.overall.avgProductionHours}h`} change={0} trend="neutral" icon={<Clock className="text-amber-600" />} />
+          </div>
+          <Card className="p-0 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800">
+              <h3 className="font-semibold">Workload Breakdown</h3>
+              <p className="text-xs text-slate-500">Who is working on how much</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 dark:bg-slate-800/50">
+                  <tr>
+                    <th className="px-6 py-4 font-semibold">Name</th>
+                    <th className="px-6 py-4 font-semibold">Role</th>
+                    <th className="px-6 py-4 font-semibold">Tasks Completed</th>
+                    <th className="px-6 py-4 font-semibold">Avg Hours</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {(roleData.workers || []).map((w) => (
+                    <tr key={w.id}>
+                      <td className="px-6 py-4 font-medium">{w.name}</td>
+                      <td className="px-6 py-4">{w.role.replace(/_/g, ' ')}</td>
+                      <td className="px-6 py-4">{w.tasksCompleted}</td>
+                      <td className="px-6 py-4">{w.avgHours}h</td>
+                    </tr>
+                  ))}
+                  {(roleData.workers || []).length === 0 && (
+                    <tr>
+                      <td colSpan={4} className="px-6 py-6 text-center text-sm text-slate-500">
+                        No workload data yet.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {!isManagerView && (
+        <div>
+          {/* Non-manager dashboard is intentionally limited to performance analytics */}
+        </div>
+      )}
+
       {/* KPI Grid */}
-      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
-        <KPICard 
-          label="Total Revenue" 
-          value={`$${(overview?.totalRevenue ?? 0).toLocaleString()}`} 
-          change={12.5} 
-          trend="up" 
-          icon={<DollarSign className="text-blue-600" />} 
-        />
-        <KPICard 
-          label="Active Jobs" 
-          value={overview?.activeJobs ?? 0} 
-          change={-2.4} 
-          trend="down" 
-          icon={<Factory className="text-amber-600" />} 
-        />
-        <KPICard 
-          label="Inventory Value" 
-          value={`$${(overview?.inventoryValue ?? 0).toLocaleString()}`} 
-          change={5.1} 
-          trend="up" 
-          icon={<Package className="text-emerald-600" />} 
-        />
-        <KPICard 
-          label="Pending Orders" 
-          value={overview?.pendingOrders ?? 0} 
-          change={0} 
-          trend="neutral" 
-          icon={<Clock className="text-indigo-600" />} 
-        />
-      </div>
+      {isManagerView && (
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
+          <KPICard 
+            label="Total Revenue" 
+            value={`$${(overview?.totalRevenue ?? 0).toLocaleString()}`} 
+            change={12.5} 
+            trend="up" 
+            icon={<DollarSign className="text-blue-600" />} 
+          />
+          <KPICard 
+            label="Active Jobs" 
+            value={overview?.activeJobs ?? 0} 
+            change={-2.4} 
+            trend="down" 
+            icon={<Factory className="text-amber-600" />} 
+          />
+          <KPICard 
+            label="Inventory Value" 
+            value={`$${(overview?.inventoryValue ?? 0).toLocaleString()}`} 
+            change={5.1} 
+            trend="up" 
+            icon={<Package className="text-emerald-600" />} 
+          />
+          <KPICard 
+            label="Pending Orders" 
+            value={overview?.pendingOrders ?? 0} 
+            change={0} 
+            trend="neutral" 
+            icon={<Clock className="text-indigo-600" />} 
+          />
+        </div>
+      )}
 
       {/* Charts Section */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {isManagerView && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card className="h-[400px]">
           <div className="mb-6 flex items-center justify-between">
             <h3 className="font-semibold">Production vs Sales</h3>
@@ -144,9 +215,11 @@ export const Dashboard = () => {
           </div>
         </Card>
       </div>
+      )}
 
       {/* Bottom Grid */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      {isManagerView && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <Card className="lg:col-span-2">
           <div className="mb-6 flex items-center justify-between">
             <h3 className="font-semibold">Active Production Jobs</h3>
@@ -209,6 +282,7 @@ export const Dashboard = () => {
           </div>
         </Card>
       </div>
+      )}
     </div>
   );
 };
