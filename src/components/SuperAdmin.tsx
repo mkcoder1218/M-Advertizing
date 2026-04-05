@@ -190,6 +190,11 @@ const SimpleList = ({ items, fields, onCreate, onUpdate, onDelete, onRefresh }: 
 
 const UsersList = ({ items, roles, onRefresh }: any) => {
   const [draft, setDraft] = useState<any>({ fullName: '', email: '', password: '' });
+  const [rows, setRows] = useState<any[]>([]);
+
+  React.useEffect(() => {
+    setRows(items || []);
+  }, [items]);
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
@@ -207,14 +212,32 @@ const UsersList = ({ items, roles, onRefresh }: any) => {
         </Button>
       </div>
       <div className="space-y-2">
-        {items.map((u: any) => (
+        {rows.map((u: any, idx: number) => (
           <div key={u.id} className="grid grid-cols-1 gap-2 md:grid-cols-6 items-center">
-            <Input value={u.fullName || ''} onChange={(e) => (u.fullName = e.target.value)} />
-            <Input value={u.email || ''} onChange={(e) => (u.email = e.target.value)} />
+            <Input
+              value={u.fullName || ''}
+              onChange={(e) => {
+                const next = [...rows];
+                next[idx] = { ...next[idx], fullName: e.target.value };
+                setRows(next);
+              }}
+            />
+            <Input
+              value={u.email || ''}
+              onChange={(e) => {
+                const next = [...rows];
+                next[idx] = { ...next[idx], email: e.target.value };
+                setRows(next);
+              }}
+            />
             <select
               className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
-              value={u.Roles?.[0]?.id || ''}
-              onChange={(e) => (u.roleId = e.target.value)}
+              value={u.roleId ?? u.Roles?.[0]?.id ?? ''}
+              onChange={(e) => {
+                const next = [...rows];
+                next[idx] = { ...next[idx], roleId: e.target.value };
+                setRows(next);
+              }}
             >
               <option value="">Role</option>
               {roles.map((r: any) => (
@@ -224,7 +247,11 @@ const UsersList = ({ items, roles, onRefresh }: any) => {
             <select
               className="h-10 rounded-xl border border-slate-200 bg-white px-3 text-sm dark:border-slate-800 dark:bg-slate-950"
               value={u.isActive ? 'true' : 'false'}
-              onChange={(e) => (u.isActive = e.target.value === 'true')}
+              onChange={(e) => {
+                const next = [...rows];
+                next[idx] = { ...next[idx], isActive: e.target.value === 'true' };
+                setRows(next);
+              }}
             >
               <option value="true">Active</option>
               <option value="false">Inactive</option>
