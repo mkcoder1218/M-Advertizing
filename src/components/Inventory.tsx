@@ -24,6 +24,8 @@ export const Inventory = () => {
   const [form, setForm] = useState({ sku: '', name: '', type: 'raw', unit: '', description: '', sellingPrice: '' });
   const [stockQty, setStockQty] = useState(0);
   const [stockLocation, setStockLocation] = useState('');
+  const [restockItemId, setRestockItemId] = useState<string | null>(null);
+  const [restockQty, setRestockQty] = useState<Record<string, number>>({});
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -226,14 +228,16 @@ export const Inventory = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center space-x-2">
-                        <span className="font-semibold">-</span>
+                        <span className="font-semibold">{item.stock ?? 0}</span>
                         <span className="text-xs text-slate-400">{item.unit}</span>
                       </div>
                     </td>
                     <td className="px-6 py-4">
                       <Badge variant="success">ACTIVE</Badge>
                     </td>
-                    <td className="px-6 py-4 font-medium">-</td>
+                    <td className="px-6 py-4 font-medium">
+                      {item.sellingPrice != null ? `$${Number(item.sellingPrice).toLocaleString()}` : '-'}
+                    </td>
                     <td className="px-6 py-4 text-right">
                       <button
                         onClick={() => openEditDrawer(item)}
@@ -265,17 +269,79 @@ export const Inventory = () => {
                 <div className="mt-4 flex items-center justify-between">
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Stock</p>
-                    <p className="text-xl font-bold">- <span className="text-sm font-normal text-slate-500">{item.unit}</span></p>
+                    <p className="text-xl font-bold">{item.stock ?? 0} <span className="text-sm font-normal text-slate-500">{item.unit}</span></p>
                   </div>
                   <div className="text-right">
                     <p className="text-xs text-slate-400 uppercase tracking-wider font-semibold">Price</p>
-                    <p className="text-xl font-bold">-</p>
+                    <p className="text-xl font-bold">
+                      {item.sellingPrice != null ? `$${Number(item.sellingPrice).toLocaleString()}` : '-'}
+                    </p>
                   </div>
                 </div>
               </div>
               <div className="mt-6 flex space-x-2">
-                <Button variant="secondary" className="flex-1 text-xs">Edit</Button>
-                <Button className="flex-1 text-xs">Restock</Button>
+                <Button variant="secondary" className="flex-1 text-xs" onClick={() => openEditDrawer(item)}>
+                  Edit
+                </Button>
+                <Button className="flex-1 text-xs" onClick={() => setRestockItemId(restockItemId === item.id ? null : item.id)}>
+                  Restock
+                </Button>
+              </div>
+              <div
+                className={cn(
+                  "mt-3 overflow-hidden transition-all duration-300",
+                  restockItemId === item.id ? "max-h-40 opacity-100" : "max-h-0 opacity-0"
+                )}
+              >
+                <div className="rounded-xl border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-900">
+                  <p className="mb-2 text-xs font-semibold text-slate-500">Add Stock</p>
+                  <p className="mb-2 text-xs text-slate-400">Current: {item.stock ?? 0} {item.unit}</p>
+                  <div className="mt-2 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        setRestockQty((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) - 1 }))
+                      }
+                    >
+                      -
+                    </Button>
+                    <Input
+                      type="number"
+                      value={restockQty[item.id] ?? 0}
+                      onChange={(e) =>
+                        setRestockQty((prev) => ({ ...prev, [item.id]: Number(e.target.value) }))
+                      }
+                    />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() =>
+                        setRestockQty((prev) => ({ ...prev, [item.id]: (prev[item.id] ?? 0) + 1 }))
+                      }
+                    >
+                      +
+                    </Button>
+                    <div className="text-xs text-slate-500">
+                      New: {(item.stock ?? 0) + (restockQty[item.id] ?? 0)} {item.unit}
+                    </div>
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        const delta = restockQty[item.id] ?? 0;
+                        const current = Number(item.stock ?? 0);
+                        const nextQty = current + delta;
+                        if (delta === 0) return;
+                        if (nextQty < 0) return;
+                        await stockMutation.mutateAsync({ id: item.id, quantity: nextQty });
+                        setRestockQty((prev) => ({ ...prev, [item.id]: 0 }));
+                        setRestockItemId(null);
+                      }}
+                    >
+                      Apply
+                    </Button>
+                  </div>
+                </div>
               </div>
             </Card>
           ))}
