@@ -326,6 +326,16 @@ const ProductsList = ({ items, onRefresh }: any) => {
               >
                 Save
               </Button>
+              <Button
+                size="sm"
+                variant="danger"
+                onClick={async () => {
+                  await productsResource.remove(p.id);
+                  onRefresh();
+                }}
+              >
+                Delete
+              </Button>
             </div>
           </div>
         ))}
